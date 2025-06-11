@@ -14,7 +14,7 @@ interface Lista {
   integrantes: string;
 }
 
-type TipoVoto = 'comun' | 'anulado' | 'observado';
+type TipoVoto = 'comun' | 'anulado' | 'observado' | 'blanco';
 
 const Votar: React.FC = () => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
@@ -143,6 +143,17 @@ const Votar: React.FC = () => {
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                 />
                 <span className="ml-2">Voto Común</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="tipoVoto"
+                  value="blanco"
+                  checked={tipoVoto === 'blanco'}
+                  onChange={(e) => setTipoVoto(e.target.value as TipoVoto)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                />
+                <span className="ml-2">Voto en Blanco</span>
               </label>
               <label className="flex items-center">
                 <input

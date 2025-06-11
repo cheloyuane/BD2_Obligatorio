@@ -5,7 +5,7 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 interface VotoRequest {
   partidoId?: number;
   listaId?: number;
-  tipoVoto: 'comun' | 'anulado' | 'observado';
+  tipoVoto: 'comun' | 'anulado' | 'observado' | 'blanco';
 }
 
 interface CustomRequest extends Request {
@@ -58,8 +58,8 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
 
     // Registrar el voto
     const [resultVoto] = await connection.query<ResultSetHeader>(
-      'INSERT INTO Voto (fecha_hora, FK_Circuito_en_Eleccion_Eleccion_ID, FK_Circuito_en_Eleccion_Circuito_ID) VALUES (NOW(), ?, ?)',
-      [FK_Eleccion_ID, FK_Circuito_ID]
+      'INSERT INTO Voto (fecha_hora, FK_Circuito_en_Eleccion_Eleccion_ID, FK_Circuito_en_Eleccion_Circuito_ID, tipo_voto) VALUES (NOW(), ?, ?, ?)',
+      [FK_Eleccion_ID, FK_Circuito_ID, tipoVoto]
     );
     const votoId = resultVoto.insertId;
 
@@ -77,6 +77,11 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
     } else if (tipoVoto === 'observado') {
       await connection.query(
         'INSERT INTO Observado (FK_Voto_ID) VALUES (?)',
+        [votoId]
+      );
+    } else if (tipoVoto === 'blanco') {
+      await connection.query(
+        'INSERT INTO Blanco (FK_Voto_ID) VALUES (?)',
         [votoId]
       );
     }
