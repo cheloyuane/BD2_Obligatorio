@@ -31,7 +31,7 @@ export const verificarToken = async (req: Request, res: Response, next: NextFunc
     
     // Verificar si el usuario existe en la base de datos
     const [rows] = await pool.query(
-      'SELECT CI FROM Ciudadano WHERE CI = ?',
+      'SELECT CC FROM Ciudadano WHERE CC = ?',
       [decoded.id]
     );
 

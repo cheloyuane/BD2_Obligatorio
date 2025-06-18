@@ -5,14 +5,13 @@ import pool from '../config/database';
 import { RowDataPacket } from 'mysql2';
 
 interface CiudadanoRow extends RowDataPacket {
-  CI: string;
-  nombre: string;
   CC: string;
+  nombre: string;
   Fecha_nacimiento: Date;
 }
 
 interface PresidenteRow extends RowDataPacket {
-  CI: string;
+  CC: string;
   ID_presidente: number;
   nombre: string;
 }
@@ -43,8 +42,8 @@ export const loginVotante: RequestHandler = async (req, res, next) => {
 
     // Verificar si ya votó
     const [votos] = await pool.query<RowDataPacket[]>(
-      'SELECT * FROM Sufraga WHERE FK_Ciudadano_CI = ?',
-      [ciudadano.CI]
+      'SELECT * FROM Sufraga WHERE FK_Ciudadano_CC = ?',
+      [ciudadano.CC]
     );
 
     if (votos.length > 0) {
@@ -56,7 +55,7 @@ export const loginVotante: RequestHandler = async (req, res, next) => {
     // Generar token JWT
     const token = jwt.sign(
       { 
-        id: ciudadano.CI,
+        id: ciudadano.CC,
         tipo: 'votante',
         nombre: ciudadano.nombre
       },
@@ -69,7 +68,7 @@ export const loginVotante: RequestHandler = async (req, res, next) => {
     res.json({
       token,
       ciudadano: {
-        ci: ciudadano.CI,
+        cc: ciudadano.CC,
         nombre: ciudadano.nombre
       }
     });
@@ -90,7 +89,7 @@ export const loginPresidente: RequestHandler = async (req, res, next) => {
       `SELECT p.*, m.ID as mesa_id
        FROM Presidente p
        JOIN Mesa m ON p.FK_Mesa = m.ID
-       JOIN Ciudadano ci ON p.FK_Ciudadano_CI = ci.CI
+       JOIN Ciudadano ci ON p.FK_Ciudadano_CC = ci.CC
        WHERE ci.CC = ?`,
       [credencial]
     );
@@ -109,7 +108,7 @@ export const loginPresidente: RequestHandler = async (req, res, next) => {
     // Generar token JWT
     const token = jwt.sign(
       { 
-        id: presidente.FK_Ciudadano_CI,
+        id: presidente.FK_Ciudadano_CC,
         tipo: 'presidente',
         mesa: presidente.mesa_id
       },
@@ -122,7 +121,7 @@ export const loginPresidente: RequestHandler = async (req, res, next) => {
     res.json({
       token,
       presidente: {
-        ci: presidente.FK_Ciudadano_CI,
+        cc: presidente.FK_Ciudadano_CC,
         mesa: presidente.mesa_id
       }
     });

@@ -21,6 +21,7 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
   try {
     const { partidoId, listaId, tipoVoto } = req.body as VotoRequest;
     const ciudadanoId = req.user?.id;
+    console.log(ciudadanoId);
 
     if (!ciudadanoId) {
       return res.status(401).json({ mensaje: 'No autorizado' });
@@ -28,7 +29,7 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
 
     // Verificar si el ciudadano ya votó
     const [yaVoto] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM Sufraga WHERE FK_Ciudadano_CI = ?',
+      'SELECT * FROM Sufraga WHERE FK_Ciudadano_CC = ?',
       [ciudadanoId]
     );
 
@@ -38,9 +39,9 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
 
     // Obtener el circuito y elección actual
     const [circuitoEleccion] = await connection.query<RowDataPacket[]>(
-      `SELECT ce.FK_Circuito_ID, ce.FK_Eleccion_ID 
-       FROM Circuito_en_Eleccion ce
-       JOIN Eleccion e ON ce.FK_Eleccion_ID = e.ID
+      `SELECT c.ID AS FK_Circuito_ID, c.FK_establecimiento_ID, c.FK_Eleccion_ID 
+       FROM Circuito c
+       JOIN Eleccion e ON c.FK_Eleccion_ID = e.ID
        LIMIT 1`
     );
 
@@ -48,18 +49,18 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
       return res.status(400).json({ mensaje: 'No hay elecciones activas en este momento' });
     }
 
-    const { FK_Circuito_ID, FK_Eleccion_ID } = circuitoEleccion[0];
+    const { FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID } = circuitoEleccion[0];
 
     // Registrar el sufragio
     await connection.query(
-      'INSERT INTO Sufraga (FK_Circuito_en_Eleccion_Eleccion_ID, FK_Circuito_en_Eleccion_Circuito_ID, FK_Ciudadano_CI, voto) VALUES (?, ?, ?, ?)',
-      [FK_Eleccion_ID, FK_Circuito_ID, ciudadanoId, true]
+      'INSERT INTO Sufraga (FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, FK_Ciudadano_CC, fecha_hora) VALUES (?, ?, ?, ?, NOW())',
+      [FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID, ciudadanoId]
     );
 
     // Registrar el voto
     const [resultVoto] = await connection.query<ResultSetHeader>(
-      'INSERT INTO Voto (fecha_hora, FK_Circuito_en_Eleccion_Eleccion_ID, FK_Circuito_en_Eleccion_Circuito_ID, tipo_voto) VALUES (NOW(), ?, ?, ?)',
-      [FK_Eleccion_ID, FK_Circuito_ID, tipoVoto]
+      'INSERT INTO Voto (FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, tipo_voto) VALUES (?, ?, ?, ?)',
+      [FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID, tipoVoto]
     );
     const votoId = resultVoto.insertId;
 
