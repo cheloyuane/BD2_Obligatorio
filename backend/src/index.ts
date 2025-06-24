@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes';
 import votoRoutes from './routes/votoRoutes';
 import partidoRoutes from './routes/partidoRoutes';
 import listaRoutes from './routes/listaRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/votos', votoRoutes);
 app.use('/api/partidos', partidoRoutes);
 app.use('/api/listas', listaRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Manejador de errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -44,5 +46,11 @@ app.listen(PORT, () => {
   console.log('- POST /api/auth/votante');
   console.log('- POST /api/auth/mesa');
   console.log('- POST /api/votos');
-  console.log('- GET /api/votos/resultados/:circuitoId');
+  console.log('- GET /api/votos/circuito-actual');
+  console.log('- GET /api/votos/resultados/:circuitoId/:establecimientoId/:eleccionId');
+  console.log('- GET /api/admin/presidente-info');
+  console.log('- GET /api/admin/eleccion-activa');
+  console.log('- POST /api/admin/configurar-circuito');
+  console.log('- POST /api/admin/abrir-urna');
+  console.log('- POST /api/admin/cerrar-urna');
 }); 

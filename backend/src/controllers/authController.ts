@@ -52,6 +52,70 @@ export const loginVotante: RequestHandler = async (req, res, next) => {
       return;
     }
 
+    // Obtener información del circuito asignado al ciudadano
+    console.log('Buscando circuito asignado para:', ciudadano.CC);
+    const [circuitoAsignado] = await pool.query<RowDataPacket[]>(
+      `SELECT 
+        ea.FK_Circuito_ID as circuito_id,
+        ea.FK_Establecimiento_ID,
+        ea.FK_Eleccion_ID,
+        e.nombre as establecimiento_nombre,
+        e.tipo as establecimiento_tipo,
+        e.direccion as establecimiento_direccion
+       FROM es_asignado ea
+       JOIN Establecimiento e ON ea.FK_Establecimiento_ID = e.ID
+       WHERE ea.FK_Ciudadano_CC = ?
+       LIMIT 1`,
+      [ciudadano.CC]
+    );
+    console.log('Resultado de circuito asignado:', circuitoAsignado);
+
+    // Si no está asignado a ningún circuito, asignarlo automáticamente
+    let circuitoInfo = null;
+    if (circuitoAsignado.length === 0) {
+      console.log('Ciudadano no asignado, buscando circuito disponible...');
+      const [circuitoDisponible] = await pool.query<RowDataPacket[]>(
+        `SELECT 
+          c.ID as circuito_id,
+          c.FK_establecimiento_ID,
+          c.FK_Eleccion_ID,
+          e.nombre as establecimiento_nombre,
+          e.tipo as establecimiento_tipo,
+          e.direccion as establecimiento_direccion
+         FROM Circuito c
+         JOIN Establecimiento e ON c.FK_establecimiento_ID = e.ID
+         WHERE c.FK_Eleccion_ID = 1
+         LIMIT 1`
+      );
+
+      if (circuitoDisponible.length > 0) {
+        console.log('Asignando circuito automáticamente...');
+        await pool.query(
+          'INSERT INTO es_asignado (FK_Ciudadano_CC, FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, fecha_hora) VALUES (?, ?, ?, ?, NOW())',
+          [ciudadano.CC, circuitoDisponible[0].circuito_id, circuitoDisponible[0].FK_establecimiento_ID, circuitoDisponible[0].FK_Eleccion_ID]
+        );
+        
+        circuitoInfo = {
+          id: circuitoDisponible[0].circuito_id,
+          establecimiento: {
+            nombre: circuitoDisponible[0].establecimiento_nombre,
+            tipo: circuitoDisponible[0].establecimiento_tipo,
+            direccion: circuitoDisponible[0].establecimiento_direccion
+          }
+        };
+        console.log('Circuito asignado automáticamente:', circuitoInfo);
+      }
+    } else {
+      circuitoInfo = {
+        id: circuitoAsignado[0].circuito_id,
+        establecimiento: {
+          nombre: circuitoAsignado[0].establecimiento_nombre,
+          tipo: circuitoAsignado[0].establecimiento_tipo,
+          direccion: circuitoAsignado[0].establecimiento_direccion
+        }
+      };
+    }
+
     // Generar token JWT
     const token = jwt.sign(
       { 
@@ -65,13 +129,18 @@ export const loginVotante: RequestHandler = async (req, res, next) => {
 
     console.log('Token generado exitosamente');
 
-    res.json({
+    // Preparar la respuesta
+    const responseData = {
       token,
       ciudadano: {
         cc: ciudadano.CC,
         nombre: ciudadano.nombre
-      }
-    });
+      },
+      circuito: circuitoInfo
+    };
+
+    console.log('Respuesta final del login:', responseData);
+    res.json(responseData);
 
   } catch (error) {
     console.error('Error en loginVotante:', error);
@@ -81,23 +150,22 @@ export const loginVotante: RequestHandler = async (req, res, next) => {
 
 export const loginPresidente: RequestHandler = async (req, res, next) => {
   try {
-    const { credencial } = req.body;
-    console.log('Intento de login de presidente con credencial:', credencial);
+    const { ci } = req.body;
+    console.log('Intento de login de presidente con credencial:', ci);
 
     // Buscar al presidente por su credencial cívica
     const [presidentes] = await pool.query<RowDataPacket[]>(
-      `SELECT p.*, m.ID as mesa_id
+      `SELECT p.ID_presidente, p.FK_Ciudadano_CC, ci.nombre
        FROM Presidente p
-       JOIN Mesa m ON p.FK_Mesa = m.ID
        JOIN Ciudadano ci ON p.FK_Ciudadano_CC = ci.CC
        WHERE ci.CC = ?`,
-      [credencial]
+      [ci]
     );
 
     console.log('Resultado de la búsqueda de presidente:', presidentes);
 
     if (presidentes.length === 0) {
-      console.log('No se encontró presidente con la credencial:', credencial);
+      console.log('No se encontró presidente con la credencial:', ci);
       res.status(401).json({ mensaje: 'Credencial inválida' });
       return;
     }
@@ -109,8 +177,9 @@ export const loginPresidente: RequestHandler = async (req, res, next) => {
     const token = jwt.sign(
       { 
         id: presidente.FK_Ciudadano_CC,
-        tipo: 'presidente',
-        mesa: presidente.mesa_id
+        tipo: 'mesa',
+        presidenteId: presidente.ID_presidente,
+        nombre: presidente.nombre
       },
       JWT_SECRET,
       { expiresIn: '1h' }
@@ -121,8 +190,9 @@ export const loginPresidente: RequestHandler = async (req, res, next) => {
     res.json({
       token,
       presidente: {
+        id: presidente.ID_presidente,
         cc: presidente.FK_Ciudadano_CC,
-        mesa: presidente.mesa_id
+        nombre: presidente.nombre
       }
     });
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
 const LoginPresidente: React.FC = () => {
@@ -20,7 +20,7 @@ const LoginPresidente: React.FC = () => {
 
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.presidente));
-      navigate('/mesa');
+      navigate('/admin');
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         setError(error.response.data.mensaje || 'Error al iniciar sesión');
@@ -73,6 +73,19 @@ const LoginPresidente: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Botón para volver al login de votantes */}
+        <div className="text-center">
+          <div className="border-t border-gray-200 pt-4">
+            <p className="text-sm text-gray-600 mb-2">¿Es votante?</p>
+            <Link
+              to="/login"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Volver a Login de Votantes
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

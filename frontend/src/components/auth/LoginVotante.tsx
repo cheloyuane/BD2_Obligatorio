@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
 const LoginVotante: React.FC = () => {
@@ -20,6 +20,7 @@ const LoginVotante: React.FC = () => {
 
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.ciudadano));
+      
       navigate('/votar');
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
@@ -73,6 +74,19 @@ const LoginVotante: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Botón para acceso a administración */}
+        <div className="text-center">
+          <div className="border-t border-gray-200 pt-4">
+            <p className="text-sm text-gray-600 mb-2">¿Es presidente de mesa?</p>
+            <Link
+              to="/login-presidente"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Acceso Administración
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

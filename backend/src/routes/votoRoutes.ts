@@ -1,8 +1,11 @@
 import { Router, RequestHandler } from 'express';
-import { emitirVoto, obtenerResultadosCircuito } from '../controllers/votoController';
+import { emitirVoto, obtenerResultadosCircuito, obtenerCircuitoActual, diagnosticarDatos } from '../controllers/votoController';
 import { verificarToken, esVotante, esMesa } from '../middlewares/authMiddleware';
 
 const router = Router();
+
+// Ruta de diagnóstico (temporal, para desarrollo)
+router.get('/diagnostico', diagnosticarDatos as RequestHandler);
 
 // Solo votantes pueden emitir votos
 router.post('/', 
@@ -11,8 +14,15 @@ router.post('/',
   emitirVoto as RequestHandler
 );
 
+// Obtener información del circuito actual
+router.get('/circuito-actual',
+  verificarToken as RequestHandler,
+  esVotante as RequestHandler,
+  obtenerCircuitoActual as RequestHandler
+);
+
 // Solo miembros de mesa pueden ver resultados
-router.get('/resultados/:circuitoId',
+router.get('/resultados/:circuitoId/:establecimientoId/:eleccionId',
   verificarToken as RequestHandler,
   esMesa as RequestHandler,
   obtenerResultadosCircuito as RequestHandler

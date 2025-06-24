@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginVotante from './components/auth/LoginVotante';
 import LoginPresidente from './components/auth/LoginPresidente';
 import Votar from './components/votacion/Votar';
+import AdminPanel from './components/admin/AdminPanel';
 import './index.css';
 
 const App: React.FC = () => {
@@ -13,6 +14,7 @@ const App: React.FC = () => {
           <Route path="/login" element={<LoginVotante />} />
           <Route path="/login-presidente" element={<LoginPresidente />} />
           <Route path="/votar" element={<Votar />} />
+          <Route path="/admin" element={<AdminPanel />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>

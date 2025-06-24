@@ -14,7 +14,16 @@ interface Lista {
   integrantes: string;
 }
 
-type TipoVoto = 'comun' | 'anulado' | 'observado' | 'blanco';
+interface CircuitoInfo {
+  id: number;
+  establecimiento: {
+    nombre: string;
+    tipo: string;
+    direccion: string;
+  };
+}
+
+type TipoVoto = 'comun' | 'anulado' | 'blanco';
 
 const Votar: React.FC = () => {
   const [partidos, setPartidos] = useState<Partido[]>([]);
@@ -22,10 +31,10 @@ const Votar: React.FC = () => {
   const [selectedPartido, setSelectedPartido] = useState<number | null>(null);
   const [selectedLista, setSelectedLista] = useState<number | null>(null);
   const [tipoVoto, setTipoVoto] = useState<TipoVoto>('comun');
-  const [esObservado, setEsObservado] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [votoEnviado, setVotoEnviado] = useState(false);
+  const [circuitoActual, setCircuitoActual] = useState<CircuitoInfo | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,7 +44,7 @@ const Votar: React.FC = () => {
       return;
     }
 
-    // Cargar partidos y listas
+    // Cargar partidos, listas y obtener información del circuito actual
     const cargarDatos = async () => {
       try {
         const [partidosRes, listasRes] = await Promise.all([
@@ -49,6 +58,25 @@ const Votar: React.FC = () => {
 
         setPartidos(partidosRes.data);
         setListas(listasRes.data);
+
+        // Obtener información del circuito actual
+        try {
+          console.log('Solicitando información del circuito actual...');
+          const circuitoRes = await axios.get('http://localhost:3001/api/votos/circuito-actual', {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 5000 // 5 segundos de timeout
+          });
+          console.log('Circuito actual recibido:', circuitoRes.data);
+          setCircuitoActual(circuitoRes.data);
+        } catch (error) {
+          console.log('No se pudo obtener información del circuito actual:', error);
+          if (axios.isAxiosError(error)) {
+            console.log('Status:', error.response?.status);
+            console.log('Data:', error.response?.data);
+          }
+          // No es crítico, continuamos sin mostrar la información del circuito
+        }
+
       } catch (error) {
         setError('Error al cargar los datos');
         console.error('Error:', error);
@@ -72,15 +100,12 @@ const Votar: React.FC = () => {
         return;
       }
 
-      // Si el voto es observado, forzar el tipo a 'observado'
-      const tipoVotoFinal = esObservado ? 'observado' : tipoVoto;
-
       await axios.post(
         'http://localhost:3001/api/votos',
         {
           partidoId: selectedPartido,
           listaId: selectedLista,
-          tipoVoto: tipoVotoFinal
+          tipoVoto: tipoVoto
         },
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -122,9 +147,23 @@ const Votar: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md mx-auto">
         <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-8">
+          <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
             Emitir Voto
           </h2>
+          
+          {circuitoActual && (
+            <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Circuito Actual:
+              </h3>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p><span className="font-medium">Establecimiento:</span> {circuitoActual.establecimiento.nombre}</p>
+                <p><span className="font-medium">Tipo:</span> {circuitoActual.establecimiento.tipo}</p>
+                <p><span className="font-medium">Dirección:</span> {circuitoActual.establecimiento.direccion}</p>
+                <p><span className="font-medium">Circuito:</span> {circuitoActual.id}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -211,19 +250,6 @@ const Votar: React.FC = () => {
                       </option>
                     ))}
                 </select>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="observado"
-                  checked={esObservado}
-                  onChange={(e) => setEsObservado(e.target.checked)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="observado" className="ml-2 block text-sm text-gray-900">
-                  No estoy votando en mi circuito
-                </label>
               </div>
             </>
           )}
