@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Logo_corte_electoral from '../../assets/Logo_corte_electoral.jpg';
 
 interface Partido {
   ID: number;
@@ -144,78 +145,64 @@ const Votar: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-            Emitir Voto
-          </h2>
-          
-          {circuitoActual && (
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Circuito Actual:
-              </h3>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p><span className="font-medium">Establecimiento:</span> {circuitoActual.establecimiento.nombre}</p>
-                <p><span className="font-medium">Tipo:</span> {circuitoActual.establecimiento.tipo}</p>
-                <p><span className="font-medium">Dirección:</span> {circuitoActual.establecimiento.direccion}</p>
-                <p><span className="font-medium">Circuito:</span> {circuitoActual.id}</p>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+    <div className="w-full max-w-2xl bg-white rounded-xl shadow-md p-8 space-y-8">
+      <div className="text-center">
+        <img
+          src={Logo_corte_electoral}
+          alt="Logo Corte Electoral"
+          className="h-20 mx-auto mb-4"
+        />
+        <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
+          Emitir Voto
+        </h2>
+        <p className="text-sm text-gray-600">Seleccione el tipo de voto y los datos correspondientes</p>
+      </div>
+      
+        {circuitoActual && (
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Información del Circuito
+            </h3>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p><span className="font-medium">Establecimiento:</span> {circuitoActual.establecimiento.nombre}</p>
+              <p><span className="font-medium">Tipo:</span> {circuitoActual.establecimiento.tipo}</p>
+              <p><span className="font-medium">Dirección:</span> {circuitoActual.establecimiento.direccion}</p>
+              <p><span className="font-medium">Circuito:</span> {circuitoActual.id}</p>
             </div>
-          )}
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+          </div>
+        )}
+  
+        <form onSubmit={handleSubmit} className="space-y-6 border-t pt-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tipo de Voto
             </label>
             <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="tipoVoto"
-                  value="comun"
-                  checked={tipoVoto === 'comun'}
-                  onChange={(e) => setTipoVoto(e.target.value as TipoVoto)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                />
-                <span className="ml-2">Voto Común</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="tipoVoto"
-                  value="blanco"
-                  checked={tipoVoto === 'blanco'}
-                  onChange={(e) => setTipoVoto(e.target.value as TipoVoto)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                />
-                <span className="ml-2">Voto en Blanco</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="tipoVoto"
-                  value="anulado"
-                  checked={tipoVoto === 'anulado'}
-                  onChange={(e) => setTipoVoto(e.target.value as TipoVoto)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                />
-                <span className="ml-2">Voto Anulado</span>
-              </label>
+              {['comun', 'blanco', 'anulado'].map((tipo) => (
+                <label key={tipo} className="flex items-center">
+                  <input
+                    type="radio"
+                    name="tipoVoto"
+                    value={tipo}
+                    checked={tipoVoto === tipo}
+                    onChange={(e) => setTipoVoto(e.target.value as TipoVoto)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                  />
+                  <span className="ml-2 capitalize">Voto {tipo}</span>
+                </label>
+              ))}
             </div>
           </div>
-
+  
           {tipoVoto === 'comun' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Partido Político
                 </label>
                 <select
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   value={selectedPartido || ''}
                   onChange={(e) => {
                     setSelectedPartido(Number(e.target.value));
@@ -230,13 +217,13 @@ const Votar: React.FC = () => {
                   ))}
                 </select>
               </div>
-
+  
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Lista
                 </label>
                 <select
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   value={selectedLista || ''}
                   onChange={(e) => setSelectedLista(Number(e.target.value))}
                   disabled={!selectedPartido}
@@ -253,16 +240,16 @@ const Votar: React.FC = () => {
               </div>
             </>
           )}
-
+  
           {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
+            <div className="text-red-600 text-sm text-center font-medium">{error}</div>
           )}
-
+  
           <div>
             <button
               type="submit"
               disabled={loading || (tipoVoto === 'comun' && (!selectedPartido || !selectedLista))}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full py-2 px-4 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               {loading ? 'Enviando voto...' : 'Emitir Voto'}
             </button>
@@ -271,6 +258,6 @@ const Votar: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
 export default Votar; 

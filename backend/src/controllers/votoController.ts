@@ -279,4 +279,32 @@ export const diagnosticarDatos = async (req: Request, res: Response): Promise<vo
 
 export const ejemploVoto = (req: Request, res: Response) => {
   res.json({ mensaje: 'Controlador de voto funcionando' });  
+};
+
+export const obtenerEstadoCircuito = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { circuitoId } = req.params;
+
+    // Obtener el estado del circuito
+    const [circuito] = await pool.query<RowDataPacket[]>(
+      'SELECT estado FROM Circuito WHERE ID = ?',
+      [circuitoId]
+    );
+
+    if (circuito.length === 0) {
+      res.status(404).json({ mensaje: 'Circuito no encontrado' });
+      return;
+    }
+
+    const circuitoAbierto = circuito[0].estado === 'abierto';
+
+    res.json({ 
+      circuitoAbierto,
+      estado: circuito[0].estado
+    });
+
+  } catch (error) {
+    console.error('Error al obtener estado del circuito:', error);
+    res.status(500).json({ mensaje: 'Error en el servidor' });
+  }
 }; 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Logo_corte_electoral from '../../assets/Logo_corte_electoral.jpg';
 
 interface CircuitoInfo {
   id: number;
@@ -196,6 +197,10 @@ const AdminPanel: React.FC = () => {
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
+            {/*Logo+ titulo*/ }
+            <div className="flex items-center space-x-4">
+              <img src={Logo_corte_electoral} alt="Logo Corte Electoral" className="h-25 w-auto" />
+            </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Panel de Administración

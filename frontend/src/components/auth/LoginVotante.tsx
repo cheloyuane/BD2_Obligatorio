@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import Logo_corte_electoral from '../../assets/Logo_corte_electoral.jpg';
 
 const LoginVotante: React.FC = () => {
   const [ci, setCi] = useState('');
@@ -34,6 +35,10 @@ const LoginVotante: React.FC = () => {
   };
 
   return (
+    <>
+    <div className="absolute top-4 left-4">
+        <img src={Logo_corte_electoral} alt="Logo Corte Electoral" className="h-25 w-auto" />
+      </div>
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
@@ -89,6 +94,7 @@ const LoginVotante: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
