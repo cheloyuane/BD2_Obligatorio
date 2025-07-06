@@ -274,13 +274,14 @@ const AdminPanel: React.FC = () => {
                     <span className="font-medium">Circuito:</span> {circuitoActual.id}
                   </div>
                   
+                  {/* Se saca este boton que no tenia ninguna funcion 
                   <button
                     onClick={() => configurarCircuito(circuitoActual.id)}
                     disabled={loading || circuitoConfigurado === circuitoActual.id}
                     className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {circuitoConfigurado === circuitoActual.id ? 'Circuito Configurado' : 'Configurar Este Circuito'}
-                  </button>
+                  </button>*/}
                 </div>
               ) : (
                 <p className="text-gray-500">No hay circuito disponible</p>
@@ -292,9 +293,10 @@ const AdminPanel: React.FC = () => {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Estado de Votación
+                CONTROL DE CIRCUITO
               </h3>
               
+              {/* Esto lo saque porque no estaba mostrando nada si tiene que tener una funcion descomentarlo
               <div className="space-y-4">
                 <div className="flex items-center">
                   <span className="font-medium mr-2">Estado:</span>
@@ -303,7 +305,7 @@ const AdminPanel: React.FC = () => {
                   }`}>
                     {urnaAbierta ? 'Votación Activa' : 'Sin Votos'}
                   </span>
-                </div>
+                </div>*/}
                 
                 <div className="space-y-2">
                   <button
@@ -433,7 +435,6 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
   );
 };
 
