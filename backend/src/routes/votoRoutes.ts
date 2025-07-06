@@ -7,6 +7,8 @@ const router = Router();
 // Ruta de diagnóstico (temporal, para desarrollo)
 router.get('/diagnostico', diagnosticarDatos as RequestHandler);
 
+
+
 // Solo votantes pueden emitir votos
 router.post('/', 
   verificarToken as RequestHandler,

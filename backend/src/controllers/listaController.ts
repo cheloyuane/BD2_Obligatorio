@@ -7,12 +7,13 @@ interface ListaRow extends RowDataPacket {
   numero: number;
   integrantes: string;
   FK_Partido_politico_ID: number;
+  imagen_url: string;
 }
 
 export const obtenerListas = async (req: Request, res: Response): Promise<void> => {
   try {
     const [listas] = await pool.query<ListaRow[]>(
-      'SELECT ID, numero, integrantes, FK_Partido_politico_ID FROM Lista'
+      'SELECT ID, numero, integrantes, FK_Partido_politico_ID, imagen_url FROM Lista'
     );
 
     res.json(listas);

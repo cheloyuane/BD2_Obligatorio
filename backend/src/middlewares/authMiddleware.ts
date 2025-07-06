@@ -5,6 +5,8 @@ import pool from '../config/database';
 interface JwtPayload {
   id: string;
   tipo: string;
+  nombre?: string;
+  presidenteId?: number;
 }
 
 declare global {

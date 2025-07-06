@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './routes/authRoutes';
 import votoRoutes from './routes/votoRoutes';
 import partidoRoutes from './routes/partidoRoutes';
@@ -20,6 +21,9 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.use(express.json());
+
+// Servir archivos estáticos desde la carpeta assets del frontend
+app.use('/src/assets', express.static(path.join(__dirname, '../../frontend/src/assets')));
 
 // Ruta de prueba
 app.get('/test', (req, res) => {
