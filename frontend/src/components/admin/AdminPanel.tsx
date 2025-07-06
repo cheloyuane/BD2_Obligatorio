@@ -44,6 +44,20 @@ interface ResultadosVotos {
     anulados: string;
     observados: string;
   };
+  resultadosPorPartido?: Array<{
+    partido_id: number;
+    partido_nombre: string;
+    votos: number;
+    porcentaje: string;
+  }>;
+  resultadosPorCandidato?: Array<{
+    partido_id: number | null;
+    partido_nombre: string;
+    candidato_cc: string | null;
+    candidato_nombre: string;
+    votos: number;
+    porcentaje: string;
+  }>;
 }
 
 const AdminPanel: React.FC = () => {
@@ -424,6 +438,95 @@ const AdminPanel: React.FC = () => {
                                 </td>
                               </tr>
                             ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Resultados por Partido */}
+                  {resultados.resultadosPorPartido && resultados.resultadosPorPartido.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mt-8 mb-4">Resultados por Partido:</h4>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Partido
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Votos
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Porcentaje
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {resultados.resultadosPorPartido.map((resultado, index) => (
+                              <tr key={index} className={index === 0 ? 'bg-green-50' : (resultado.partido_nombre === 'Votos en Blanco' || resultado.partido_nombre === 'Votos Anulados' ? 'bg-gray-100' : '')}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {resultado.partido_nombre}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                  {resultado.votos}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {resultado.porcentaje}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Resultados por Candidato */}
+                  {resultados.resultadosPorCandidato && resultados.resultadosPorCandidato.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mt-8 mb-4">Resultados por Candidato:</h4>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Candidato
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Partido
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Votos
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Porcentaje
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {resultados.resultadosPorCandidato.map((resultado, index) => {
+                              const esBlanco = resultado.candidato_nombre === 'Votos en Blanco';
+                              const esAnulado = resultado.candidato_nombre === 'Votos Anulados';
+                              const partidoMostrar = esBlanco ? 'Votos en Blanco' : esAnulado ? 'Votos Anulados' : resultado.partido_nombre;
+                              return (
+                                <tr key={index} className={index === 0 ? 'bg-green-50' : (esBlanco || esAnulado ? 'bg-gray-100' : '')}>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {resultado.candidato_nombre}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {partidoMostrar}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                    {resultado.votos}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {resultado.porcentaje}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

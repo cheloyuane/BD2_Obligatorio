@@ -40,7 +40,6 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
     const presidente = (rows as any[])[0];
 
     if (!presidente) {
-      console.log('No se encontró presidente para el ID:', presidenteId);
       return res.status(404).json({ mensaje: 'Presidente no encontrado' });
     }
 
@@ -75,10 +74,8 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
       } : null,
       urnaAbierta: urnaAbierta
     };
-    console.log('Respuesta presidente-info:', response);
     res.json(response);
   } catch (error: any) {
-    console.error('Error en getPresidenteInfo:', error, error?.sqlMessage || '');
     res.status(500).json({ mensaje: 'Error interno del servidor', error: error?.sqlMessage || error?.message });
   }
 };
@@ -103,7 +100,6 @@ export const getEleccionActiva = async (req: Request, res: Response) => {
 
     res.json(eleccion);
   } catch (error: any) {
-    console.error('Error en getEleccionActiva:', error, error?.sqlMessage || '');
     res.status(500).json({ mensaje: 'Error interno del servidor', error: error?.sqlMessage || error?.message });
   }
 };
@@ -147,7 +143,6 @@ export const configurarCircuito = async (req: Request, res: Response) => {
 
     res.json({ mensaje: 'Circuito configurado correctamente' });
   } catch (error) {
-    console.error('Error en configurarCircuito:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
@@ -195,7 +190,6 @@ export const abrirUrna = async (req: Request, res: Response) => {
 
     res.json({ mensaje: 'Urna abierta: ahora se aceptan votos' });
   } catch (error) {
-    console.error('Error en abrirUrna:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
@@ -243,7 +237,6 @@ export const cerrarUrna = async (req: Request, res: Response) => {
 
     res.json({ mensaje: 'Urna cerrada: ya no se aceptan votos' });
   } catch (error) {
-    console.error('Error en cerrarUrna:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
@@ -251,7 +244,6 @@ export const cerrarUrna = async (req: Request, res: Response) => {
 // Obtener resultados del circuito (solo cuando está cerrado)
 export const getResultadosCircuito = async (req: Request, res: Response) => {
   try {
-    console.log('Iniciando getResultadosCircuito...');
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       return res.status(401).json({ mensaje: 'Token no proporcionado' });
@@ -259,7 +251,6 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     const presidenteId = decoded.presidenteId;
-    console.log('Presidente ID:', presidenteId);
 
     // Obtener circuito del presidente
     const [presidenteRows] = await pool.execute(`
@@ -276,7 +267,6 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
     }
 
     const { FK_Circuito_ID: circuitoId, FK_Establecimiento_ID: establecimientoId, FK_Eleccion_ID: eleccionId } = presidente;
-    console.log('Circuito ID:', circuitoId, 'Establecimiento ID:', establecimientoId, 'Elección ID:', eleccionId);
 
     // Verificar estado del circuito
     const [estadoRows] = await pool.execute(
@@ -284,7 +274,6 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
       [circuitoId, establecimientoId, eleccionId]
     );
     const estado = (estadoRows as any[])[0]?.estado;
-    console.log('Estado del circuito:', estado);
 
     if (estado === 'abierto') {
       return res.status(400).json({ mensaje: 'No se pueden ver resultados mientras la urna está abierta' });
@@ -294,7 +283,6 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
     const votosQuery = 'SELECT COUNT(*) as total FROM Voto WHERE FK_Circuito_ID = ? AND FK_Establecimiento_ID = ? AND FK_Eleccion_ID = ?';
     const [votosRows] = await pool.execute(votosQuery, [circuitoId, establecimientoId, eleccionId]);
     const totalVotos = (votosRows as any[])[0].total;
-    console.log('Total de votos:', totalVotos);
 
     if (totalVotos === 0) {
       return res.status(400).json({ mensaje: 'No hay votos registrados en este circuito' });
@@ -329,7 +317,6 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
     `;
 
     const [resultadosRows] = await pool.execute(resultadosQuery, [circuitoId, establecimientoId, eleccionId]);
-    console.log('Resultados por lista:', resultadosRows);
 
     // Obtener conteos por tipo de voto
     const conteosQuery = `
@@ -344,16 +331,14 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
     `;
 
     const [conteosRows] = await pool.execute(conteosQuery, [circuitoId, establecimientoId, eleccionId]);
-    console.log('Conteos por tipo:', conteosRows);
 
     // Formatear conteos especiales
     const conteos = (conteosRows as any[]).reduce((acc, row) => {
       acc[row.tipo_voto] = row.cantidad;
       return acc;
     }, {});
-    console.log('Conteos formateados:', conteos);
 
-    // Obtener votos observados
+    // Debug paso a paso
     const observadosQuery = `
       SELECT COUNT(*) as cantidad
       FROM Voto
@@ -363,12 +348,73 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
         AND es_observado = TRUE
     `;
     const [observadosRows] = await pool.execute(observadosQuery, [circuitoId, establecimientoId, eleccionId]);
-    const votosObservados = (observadosRows as any[])[0].cantidad;
+    const votosObservados = (observadosRows as any[])[0]?.cantidad;
 
-    // Calcular porcentajes
     const votosComunes = (resultadosRows as any[]).reduce((sum: number, row: any) => sum + row.votos, 0);
     const votosBlanco = conteos.blanco || 0;
     const votosAnulados = conteos.anulado || 0;
+
+    // --- NUEVO: Resultados por partido ---
+    const resultadosPartidoQuery = `
+      SELECT 
+        pp.ID as partido_id,
+        pp.nombre as partido_nombre,
+        COUNT(v.id) as votos
+      FROM Partido_politico pp
+      JOIN Lista l ON l.FK_Partido_politico_ID = pp.ID
+      LEFT JOIN Comun c ON l.ID = c.FK_Lista_ID AND l.FK_Partido_politico_ID = c.FK_Partido_politico_ID
+      LEFT JOIN Voto v ON c.FK_Voto_ID = v.ID 
+        AND v.FK_Circuito_ID = ? 
+        AND v.FK_Establecimiento_ID = ? 
+        AND v.FK_Eleccion_ID = ?
+        AND v.tipo_voto = 'comun'
+      GROUP BY pp.ID, pp.nombre
+      HAVING COUNT(v.id) > 0
+      ORDER BY votos DESC
+    `;
+    const [resultadosPartidoRows] = await pool.execute(resultadosPartidoQuery, [circuitoId, establecimientoId, eleccionId]);
+    const resultadosPorPartido = [...(resultadosPartidoRows as any[]).map((row: any) => ({
+      ...row,
+      porcentaje: totalVotos > 0 ? ((row.votos / totalVotos) * 100).toFixed(2) : '0.00'
+    }))];
+    resultadosPorPartido.push(
+      { partido_id: null, partido_nombre: 'Votos en Blanco', votos: votosBlanco, porcentaje: totalVotos > 0 ? ((votosBlanco / totalVotos) * 100).toFixed(2) : '0.00' },
+      { partido_id: null, partido_nombre: 'Votos Anulados', votos: votosAnulados, porcentaje: totalVotos > 0 ? ((votosAnulados / totalVotos) * 100).toFixed(2) : '0.00' }
+    );
+    resultadosPorPartido.sort((a, b) => b.votos - a.votos);
+
+    // --- NUEVO: Resultados por candidato ---
+    const resultadosCandidatoQuery = `
+      SELECT 
+        pp.ID as partido_id,
+        pp.nombre as partido_nombre,
+        ci.CC as candidato_cc,
+        ci.nombre as candidato_nombre,
+        COUNT(v.id) as votos
+      FROM Partido_politico pp
+      JOIN Lista l ON l.FK_Partido_politico_ID = pp.ID
+      JOIN Candidato c ON l.ID = c.FK_Lista_ID AND l.FK_Partido_politico_ID = c.FK_Partido_politico_ID
+      JOIN Ciudadano ci ON c.FK_Ciudadano_CC = ci.CC
+      LEFT JOIN Comun com ON l.ID = com.FK_Lista_ID AND l.FK_Partido_politico_ID = com.FK_Partido_politico_ID
+      LEFT JOIN Voto v ON com.FK_Voto_ID = v.ID 
+        AND v.FK_Circuito_ID = ? 
+        AND v.FK_Establecimiento_ID = ? 
+        AND v.FK_Eleccion_ID = ?
+        AND v.tipo_voto = 'comun'
+      GROUP BY pp.ID, pp.nombre, ci.CC, ci.nombre
+      HAVING COUNT(v.id) > 0
+      ORDER BY votos DESC
+    `;
+    const [resultadosCandidatoRows] = await pool.execute(resultadosCandidatoQuery, [circuitoId, establecimientoId, eleccionId]);
+    const resultadosPorCandidato = [...(resultadosCandidatoRows as any[]).map((row: any) => ({
+      ...row,
+      porcentaje: totalVotos > 0 ? ((row.votos / totalVotos) * 100).toFixed(2) : '0.00'
+    }))];
+    resultadosPorCandidato.push(
+      { partido_id: null, partido_nombre: '', candidato_cc: null, candidato_nombre: 'Votos en Blanco', votos: votosBlanco, porcentaje: totalVotos > 0 ? ((votosBlanco / totalVotos) * 100).toFixed(2) : '0.00' },
+      { partido_id: null, partido_nombre: '', candidato_cc: null, candidato_nombre: 'Votos Anulados', votos: votosAnulados, porcentaje: totalVotos > 0 ? ((votosAnulados / totalVotos) * 100).toFixed(2) : '0.00' }
+    );
+    resultadosPorCandidato.sort((a, b) => b.votos - a.votos);
 
     const response = {
       circuito: {
@@ -387,6 +433,8 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
         ...row,
         porcentaje: totalVotos > 0 ? ((row.votos / totalVotos) * 100).toFixed(2) : '0.00'
       })),
+      resultadosPorPartido,
+      resultadosPorCandidato,
       porcentajes: {
         comunes: totalVotos > 0 ? ((votosComunes / totalVotos) * 100).toFixed(2) : '0.00',
         blanco: totalVotos > 0 ? ((votosBlanco / totalVotos) * 100).toFixed(2) : '0.00',
@@ -394,11 +442,12 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
         observados: totalVotos > 0 ? ((votosObservados / totalVotos) * 100).toFixed(2) : '0.00'
       }
     };
-
     res.json(response);
-  } catch (error) {
-    console.error('Error en getResultadosCircuito:', error);
-    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  } catch (error: any) {
+    if (error && error.stack) {
+      console.error('Stack:', error.stack);
+    }
+    res.status(500).json({ mensaje: 'Error interno del servidor', error });
   }
 };
 
@@ -439,7 +488,6 @@ export const getEstadoCircuito = async (req: Request, res: Response) => {
       urnaAbierta: estado === 'abierto'
     });
   } catch (error) {
-    console.error('Error en getEstadoCircuito:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
@@ -447,8 +495,6 @@ export const getEstadoCircuito = async (req: Request, res: Response) => {
 // Obtener resultados generales para la Corte Electoral
 export const getResultadosGenerales = async (req: Request, res: Response) => {
   try {
-    console.log('Iniciando getResultadosGenerales...');
-
     // Obtener elección activa
     const [eleccionRows] = await pool.execute(`
       SELECT ID, Fecha_inicio, Fecha_fin
@@ -496,12 +542,7 @@ export const getResultadosGenerales = async (req: Request, res: Response) => {
     const circuitosCerrados = Number(circuitos.cerrados) || 0;
     const totalCircuitos = Number(circuitos.total) || 0;
     
-    console.log('Datos de circuitos:', circuitos);
-    console.log('Circuitos abiertos:', circuitosAbiertos, 'tipo:', typeof circuitosAbiertos);
-    console.log('Circuitos cerrados:', circuitosCerrados, 'tipo:', typeof circuitosCerrados);
-
     const todosCerrados = circuitosAbiertos === 0 && circuitosCerrados > 0;
-    console.log('Todos cerrados:', todosCerrados);
 
     // Si todos los circuitos están cerrados, obtener resultados finales
     let resultadosFinales = null;
@@ -602,10 +643,8 @@ export const getResultadosGenerales = async (req: Request, res: Response) => {
       resultadosFinales
     };
 
-    console.log('Respuesta resultados generales:', response);
     res.json(response);
   } catch (error) {
-    console.error('Error en getResultadosGenerales:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 }; 
