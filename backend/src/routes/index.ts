@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import votoRoutes from './votoRoutes';
 import authRoutes from './authRoutes';
+import adminRoutes from './adminRoutes';
 
 const router = Router();
 
@@ -11,6 +12,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/votos', votoRoutes);
+router.use('/admin', adminRoutes);
 
 router.get('/', (req, res) => {
   res.send('API del Sistema de Votación Electrónica');

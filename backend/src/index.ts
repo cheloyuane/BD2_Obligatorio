@@ -7,6 +7,7 @@ import votoRoutes from './routes/votoRoutes';
 import partidoRoutes from './routes/partidoRoutes';
 import listaRoutes from './routes/listaRoutes';
 import adminRoutes from './routes/adminRoutes';
+import { getResultadosGenerales } from './controllers/adminController';
 
 dotenv.config();
 
@@ -37,6 +38,9 @@ app.use('/api/partidos', partidoRoutes);
 app.use('/api/listas', listaRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Ruta directa para la Corte Electoral
+app.get('/api/corte-electoral/resultados-generales', getResultadosGenerales);
+
 // Manejador de errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
@@ -57,4 +61,5 @@ app.listen(PORT, () => {
   console.log('- POST /api/admin/configurar-circuito');
   console.log('- POST /api/admin/abrir-urna');
   console.log('- POST /api/admin/cerrar-urna');
+  console.log('- GET /api/corte-electoral/resultados-generales');
 }); 

@@ -80,16 +80,24 @@ const LoginVotante: React.FC = () => {
           </div>
         </form>
 
-        {/* Botón para acceso a administración */}
+        {/* Botones para otros accesos */}
         <div className="text-center">
           <div className="border-t border-gray-200 pt-4">
-            <p className="text-sm text-gray-600 mb-2">¿Es presidente de mesa?</p>
-            <Link
-              to="/login-presidente"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Acceso Administración
-            </Link>
+            <p className="text-sm text-gray-600 mb-2">Otros accesos:</p>
+            <div className="space-y-2">
+              <Link
+                to="/login-presidente"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2"
+              >
+                Login Presidente
+              </Link>
+              <Link
+                to="/login-corte"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Corte Electoral
+              </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -442,4 +442,170 @@ export const getEstadoCircuito = async (req: Request, res: Response) => {
     console.error('Error en getEstadoCircuito:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
+};
+
+// Obtener resultados generales para la Corte Electoral
+export const getResultadosGenerales = async (req: Request, res: Response) => {
+  try {
+    console.log('Iniciando getResultadosGenerales...');
+
+    // Obtener elección activa
+    const [eleccionRows] = await pool.execute(`
+      SELECT ID, Fecha_inicio, Fecha_fin
+      FROM Eleccion
+      WHERE NOW() BETWEEN Fecha_inicio AND Fecha_fin
+      ORDER BY Fecha_inicio DESC
+      LIMIT 1
+    `);
+    const eleccion = (eleccionRows as any[])[0];
+
+    if (!eleccion) {
+      return res.status(404).json({ mensaje: 'No hay elección activa' });
+    }
+
+    const eleccionId = eleccion.ID;
+
+    // Obtener total de ciudadanos registrados
+    const [ciudadanosRows] = await pool.execute('SELECT COUNT(*) as total FROM Ciudadano');
+    const totalCiudadanos = (ciudadanosRows as any[])[0].total;
+
+    // Obtener total de votantes
+    const [votantesRows] = await pool.execute(`
+      SELECT COUNT(DISTINCT FK_Ciudadano_CC) as total
+      FROM Sufraga
+      WHERE FK_Eleccion_ID = ?
+    `, [eleccionId]);
+    const totalVotantes = (votantesRows as any[])[0].total;
+
+    // Calcular porcentaje de participación
+    const porcentajeParticipacion = totalCiudadanos > 0 ? (totalVotantes / totalCiudadanos) * 100 : 0;
+
+    // Obtener estado de los circuitos
+    const [circuitosRows] = await pool.execute(`
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN estado = 'abierto' THEN 1 ELSE 0 END), 0) as abiertos,
+        COALESCE(SUM(CASE WHEN estado = 'cerrado' THEN 1 ELSE 0 END), 0) as cerrados
+      FROM Circuito
+      WHERE FK_Eleccion_ID = ?
+    `, [eleccionId]);
+    const circuitos = (circuitosRows as any[])[0];
+    
+    // Convertir a números para asegurar comparaciones correctas
+    const circuitosAbiertos = Number(circuitos.abiertos) || 0;
+    const circuitosCerrados = Number(circuitos.cerrados) || 0;
+    const totalCircuitos = Number(circuitos.total) || 0;
+    
+    console.log('Datos de circuitos:', circuitos);
+    console.log('Circuitos abiertos:', circuitosAbiertos, 'tipo:', typeof circuitosAbiertos);
+    console.log('Circuitos cerrados:', circuitosCerrados, 'tipo:', typeof circuitosCerrados);
+
+    const todosCerrados = circuitosAbiertos === 0 && circuitosCerrados > 0;
+    console.log('Todos cerrados:', todosCerrados);
+
+    // Si todos los circuitos están cerrados, obtener resultados finales
+    let resultadosFinales = null;
+    if (todosCerrados) {
+      // Obtener resultados por lista con información del candidato
+      const [resultadosRows] = await pool.execute(`
+        SELECT 
+          l.ID as lista_id,
+          l.numero as lista_numero,
+          pp.ID as partido_id,
+          pp.nombre as partido_nombre,
+          COUNT(v.id) as votos,
+          c.FK_Ciudadano_CC as candidato_cc,
+          ci.nombre as candidato_nombre,
+          c.id_candidato as candidato_id
+        FROM Lista l
+        JOIN Partido_politico pp ON l.FK_Partido_politico_ID = pp.ID
+        LEFT JOIN Comun com ON l.ID = com.FK_Lista_ID AND l.FK_Partido_politico_ID = com.FK_Partido_politico_ID
+        LEFT JOIN Voto v ON com.FK_Voto_ID = v.ID 
+          AND v.FK_Eleccion_ID = ?
+          AND v.tipo_voto = 'comun'
+        LEFT JOIN Candidato c ON l.ID = c.FK_Lista_ID AND l.FK_Partido_politico_ID = c.FK_Partido_politico_ID
+        LEFT JOIN Ciudadano ci ON c.FK_Ciudadano_CC = ci.CC
+        LEFT JOIN Participa_en pe ON c.FK_Ciudadano_CC = pe.FK_Candidato_CC AND pe.FK_Eleccion_ID = ?
+        GROUP BY l.ID, l.FK_Partido_politico_ID, pp.ID, c.FK_Ciudadano_CC, ci.nombre, c.id_candidato
+        HAVING COUNT(v.id) > 0
+        ORDER BY votos DESC
+      `, [eleccionId, eleccionId]);
+
+      const todasLasListas = (resultadosRows as any[]).map((row: any) => ({
+        ...row,
+        porcentaje: totalVotantes > 0 ? (row.votos / totalVotantes) * 100 : 0
+      }));
+
+      // Obtener lista ganadora y candidato ganador
+      const listaGanadora = todasLasListas[0] || null;
+      const candidatoGanador = listaGanadora ? {
+        cc: listaGanadora.candidato_cc,
+        nombre: listaGanadora.candidato_nombre,
+        id: listaGanadora.candidato_id,
+        lista: {
+          id: listaGanadora.lista_id,
+          numero: listaGanadora.lista_numero
+        },
+        partido: {
+          id: listaGanadora.partido_id,
+          nombre: listaGanadora.partido_nombre
+        },
+        votos: listaGanadora.votos,
+        porcentaje: listaGanadora.porcentaje
+      } : null;
+
+      // Obtener conteos por tipo de voto
+      const [conteosRows] = await pool.execute(`
+        SELECT 
+          tipo_voto,
+          COUNT(*) as cantidad
+        FROM Voto
+        WHERE FK_Eleccion_ID = ?
+        GROUP BY tipo_voto
+      `, [eleccionId]);
+
+      const conteos = (conteosRows as any[]).reduce((acc, row) => {
+        acc[row.tipo_voto] = row.cantidad;
+        return acc;
+      }, {});
+
+      // Obtener votos observados
+      const [observadosRows] = await pool.execute(`
+        SELECT COUNT(*) as cantidad
+        FROM Voto
+        WHERE FK_Eleccion_ID = ?
+          AND es_observado = TRUE
+      `, [eleccionId]);
+      const votosObservados = (observadosRows as any[])[0].cantidad;
+
+      resultadosFinales = {
+        candidatoGanador,
+        listaGanadora,
+        todasLasListas,
+        resumen: {
+          totalVotos: totalVotantes,
+          votosBlanco: conteos.blanco || 0,
+          votosAnulados: conteos.anulado || 0,
+          votosObservados: votosObservados
+        }
+      };
+    }
+
+    const response = {
+      totalCiudadanos,
+      totalVotantes,
+      porcentajeParticipacion,
+      circuitosAbiertos: circuitosAbiertos,
+      circuitosCerrados: circuitosCerrados,
+      totalCircuitos: totalCircuitos,
+      todosCerrados,
+      resultadosFinales
+    };
+
+    console.log('Respuesta resultados generales:', response);
+    res.json(response);
+  } catch (error) {
+    console.error('Error en getResultadosGenerales:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
 }; 
