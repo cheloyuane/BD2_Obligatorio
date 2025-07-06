@@ -44,17 +44,17 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
       return res.status(404).json({ mensaje: 'Presidente no encontrado' });
     }
 
-    // Verificar si hay votos en el circuito (urna "abierta")
+    // Verificar estado del circuito
     let urnaAbierta = false;
     if (presidente.circuito_id) {
-      const votosQuery = `
-        SELECT COUNT(*) as total_votos
-        FROM Voto
-        WHERE FK_Circuito_ID = ?
+      const estadoQuery = `
+        SELECT estado
+        FROM Circuito
+        WHERE ID = ?
         LIMIT 1
       `;
-      const [votosRows] = await pool.execute(votosQuery, [presidente.circuito_id]);
-      urnaAbierta = (votosRows as any[])[0].total_votos > 0;
+      const [estadoRows] = await pool.execute(estadoQuery, [presidente.circuito_id]);
+      urnaAbierta = (estadoRows as any[])[0]?.estado === 'abierto';
     }
 
     // Formatear respuesta
@@ -152,99 +152,106 @@ export const configurarCircuito = async (req: Request, res: Response) => {
   }
 };
 
-// Abrir urna (simulado - en realidad solo verifica que no hay votos)
+// Abrir urna - cambiar estado del circuito a 'abierto'
 export const abrirUrna = async (req: Request, res: Response) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ mensaje: 'Token no proporcionado' });
-    }
+    if (!token) return res.status(401).json({ mensaje: 'Token no proporcionado' });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
-    const presidenteId = decoded.presidenteId;
+    const { presidenteId } = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
 
-    // Obtener el circuito del presidente desde abre_circuito
-    const presidenteQuery = `
-      SELECT ac.FK_Circuito_ID 
+    // Obtener circuito del presidente
+    const [presidenteRows] = await pool.execute(`
+      SELECT ac.FK_Circuito_ID, ac.FK_Establecimiento_ID, ac.FK_Eleccion_ID
       FROM abre_circuito ac
       JOIN Presidente p ON ac.FK_Presidente_CC = p.FK_Ciudadano_CC
       WHERE p.ID_presidente = ?
       ORDER BY ac.Fecha DESC
-      LIMIT 1
-    `;
-    const [presidenteRows] = await pool.execute(presidenteQuery, [presidenteId]);
+      LIMIT 1`, [presidenteId]);
     const presidente = (presidenteRows as any[])[0];
 
     if (!presidente || !presidente.FK_Circuito_ID) {
       return res.status(400).json({ mensaje: 'Debe configurar un circuito primero' });
     }
 
-    const circuitoId = presidente.FK_Circuito_ID;
+    const { FK_Circuito_ID: circuitoId, FK_Establecimiento_ID: establecimientoId, FK_Eleccion_ID: eleccionId } = presidente;
 
-    // Verificar si ya hay votos en el circuito
-    const votosQuery = 'SELECT COUNT(*) as total FROM Voto WHERE FK_Circuito_ID = ?';
-    const [votosRows] = await pool.execute(votosQuery, [circuitoId]);
-    const totalVotos = (votosRows as any[])[0].total;
+    // Verificar estado actual del circuito
+    const [estadoRows] = await pool.execute(
+      'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
+      [circuitoId, establecimientoId, eleccionId]
+    );
+    const estadoActual = (estadoRows as any[])[0]?.estado;
 
-    if (totalVotos > 0) {
-      return res.status(400).json({ mensaje: 'La urna ya está abierta (hay votos registrados)' });
+    if (estadoActual === 'abierto') {
+      return res.status(400).json({ mensaje: 'La urna ya está abierta' });
     }
 
-    res.json({ mensaje: 'Urna lista para recibir votos' });
+    // Actualizar estado a 'abierto'
+    await pool.execute(
+      'UPDATE Circuito SET estado = "abierto" WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
+      [circuitoId, establecimientoId, eleccionId]
+    );
+
+    res.json({ mensaje: 'Urna abierta: ahora se aceptan votos' });
   } catch (error) {
     console.error('Error en abrirUrna:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
 
-// Cerrar urna (simulado - en realidad solo verifica que hay votos)
+// Cerrar urna - cambiar estado del circuito a 'cerrado'
 export const cerrarUrna = async (req: Request, res: Response) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ mensaje: 'Token no proporcionado' });
-    }
+    if (!token) return res.status(401).json({ mensaje: 'Token no proporcionado' });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
-    const presidenteId = decoded.presidenteId;
+    const { presidenteId } = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
 
-    // Obtener el circuito del presidente desde abre_circuito
-    const presidenteQuery = `
-      SELECT ac.FK_Circuito_ID 
+    // Obtener circuito del presidente
+    const [presidenteRows] = await pool.execute(`
+      SELECT ac.FK_Circuito_ID, ac.FK_Establecimiento_ID, ac.FK_Eleccion_ID
       FROM abre_circuito ac
       JOIN Presidente p ON ac.FK_Presidente_CC = p.FK_Ciudadano_CC
       WHERE p.ID_presidente = ?
       ORDER BY ac.Fecha DESC
-      LIMIT 1
-    `;
-    const [presidenteRows] = await pool.execute(presidenteQuery, [presidenteId]);
+      LIMIT 1`, [presidenteId]);
     const presidente = (presidenteRows as any[])[0];
 
     if (!presidente || !presidente.FK_Circuito_ID) {
       return res.status(400).json({ mensaje: 'Debe configurar un circuito primero' });
     }
 
-    const circuitoId = presidente.FK_Circuito_ID;
+    const { FK_Circuito_ID: circuitoId, FK_Establecimiento_ID: establecimientoId, FK_Eleccion_ID: eleccionId } = presidente;
 
-    // Verificar si hay votos en el circuito
-    const votosQuery = 'SELECT COUNT(*) as total FROM Voto WHERE FK_Circuito_ID = ?';
-    const [votosRows] = await pool.execute(votosQuery, [circuitoId]);
-    const totalVotos = (votosRows as any[])[0].total;
+    // Verificar estado actual del circuito
+    const [estadoRows] = await pool.execute(
+      'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
+      [circuitoId, establecimientoId, eleccionId]
+    );
+    const estadoActual = (estadoRows as any[])[0]?.estado;
 
-    if (totalVotos === 0) {
-      return res.status(400).json({ mensaje: 'La urna está cerrada (no hay votos registrados)' });
+    if (estadoActual === 'cerrado') {
+      return res.status(400).json({ mensaje: 'La urna ya está cerrada' });
     }
 
-    res.json({ mensaje: 'Urna cerrada - puede proceder con el conteo' });
+    // Actualizar estado a 'cerrado'
+    await pool.execute(
+      'UPDATE Circuito SET estado = "cerrado" WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
+      [circuitoId, establecimientoId, eleccionId]
+    );
+
+    res.json({ mensaje: 'Urna cerrada: ya no se aceptan votos' });
   } catch (error) {
     console.error('Error en cerrarUrna:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
 
-// Obtener resultados del circuito
+// Obtener resultados del circuito (solo cuando está cerrado)
 export const getResultadosCircuito = async (req: Request, res: Response) => {
   try {
+    console.log('Iniciando getResultadosCircuito...');
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       return res.status(401).json({ mensaje: 'Token no proporcionado' });
@@ -252,54 +259,79 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     const presidenteId = decoded.presidenteId;
-    const { circuitoId, establecimientoId, eleccionId } = req.params;
+    console.log('Presidente ID:', presidenteId);
 
-    // Verificar que el presidente tiene acceso a este circuito
-    const presidenteQuery = `
-      SELECT ac.FK_Circuito_ID 
+    // Obtener circuito del presidente
+    const [presidenteRows] = await pool.execute(`
+      SELECT ac.FK_Circuito_ID, ac.FK_Establecimiento_ID, ac.FK_Eleccion_ID
       FROM abre_circuito ac
       JOIN Presidente p ON ac.FK_Presidente_CC = p.FK_Ciudadano_CC
       WHERE p.ID_presidente = ?
       ORDER BY ac.Fecha DESC
-      LIMIT 1
-    `;
-    const [presidenteRows] = await pool.execute(presidenteQuery, [presidenteId]);
+      LIMIT 1`, [presidenteId]);
     const presidente = (presidenteRows as any[])[0];
 
-    if (!presidente || presidente.FK_Circuito_ID != circuitoId) {
-      return res.status(403).json({ mensaje: 'No tiene acceso a este circuito' });
+    if (!presidente || !presidente.FK_Circuito_ID) {
+      return res.status(400).json({ mensaje: 'Debe configurar un circuito primero' });
+    }
+
+    const { FK_Circuito_ID: circuitoId, FK_Establecimiento_ID: establecimientoId, FK_Eleccion_ID: eleccionId } = presidente;
+    console.log('Circuito ID:', circuitoId, 'Establecimiento ID:', establecimientoId, 'Elección ID:', eleccionId);
+
+    // Verificar estado del circuito
+    const [estadoRows] = await pool.execute(
+      'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
+      [circuitoId, establecimientoId, eleccionId]
+    );
+    const estado = (estadoRows as any[])[0]?.estado;
+    console.log('Estado del circuito:', estado);
+
+    if (estado === 'abierto') {
+      return res.status(400).json({ mensaje: 'No se pueden ver resultados mientras la urna está abierta' });
     }
 
     // Verificar que hay votos en el circuito
-    const votosQuery = 'SELECT COUNT(*) as total FROM Voto WHERE FK_Circuito_ID = ?';
-    const [votosRows] = await pool.execute(votosQuery, [circuitoId]);
+    const votosQuery = 'SELECT COUNT(*) as total FROM Voto WHERE FK_Circuito_ID = ? AND FK_Establecimiento_ID = ? AND FK_Eleccion_ID = ?';
+    const [votosRows] = await pool.execute(votosQuery, [circuitoId, establecimientoId, eleccionId]);
     const totalVotos = (votosRows as any[])[0].total;
+    console.log('Total de votos:', totalVotos);
 
     if (totalVotos === 0) {
       return res.status(400).json({ mensaje: 'No hay votos registrados en este circuito' });
     }
 
-    // Obtener resultados por lista
+    // Obtener información del establecimiento
+    const [establecimientoRows] = await pool.execute(
+      'SELECT nombre, tipo, direccion FROM Establecimiento WHERE ID = ?',
+      [establecimientoId]
+    );
+    const establecimiento = (establecimientoRows as any[])[0];
+
+    // Obtener resultados por lista (votos comunes)
     const resultadosQuery = `
       SELECT 
-        l.número as lista_numero,
+        l.ID as lista_id,
+        l.numero as lista_numero,
+        pp.ID as partido_id,
         pp.nombre as partido_nombre,
         COUNT(v.id) as votos
       FROM Lista l
       JOIN Partido_politico pp ON l.FK_Partido_politico_ID = pp.ID
       LEFT JOIN Comun c ON l.ID = c.FK_Lista_ID AND l.FK_Partido_politico_ID = c.FK_Partido_politico_ID
-      LEFT JOIN Voto v ON c.FK_Voto_ID = v.ID
-      WHERE v.FK_Circuito_ID = ? 
+      LEFT JOIN Voto v ON c.FK_Voto_ID = v.ID 
+        AND v.FK_Circuito_ID = ? 
         AND v.FK_Establecimiento_ID = ? 
         AND v.FK_Eleccion_ID = ?
         AND v.tipo_voto = 'comun'
-      GROUP BY l.ID, l.FK_Partido_politico_ID, l.número, pp.nombre
+      GROUP BY l.ID, l.FK_Partido_politico_ID, pp.ID
+      HAVING COUNT(v.id) > 0
       ORDER BY votos DESC
     `;
 
     const [resultadosRows] = await pool.execute(resultadosQuery, [circuitoId, establecimientoId, eleccionId]);
+    console.log('Resultados por lista:', resultadosRows);
 
-    // Obtener conteos especiales
+    // Obtener conteos por tipo de voto
     const conteosQuery = `
       SELECT 
         tipo_voto,
@@ -312,24 +344,268 @@ export const getResultadosCircuito = async (req: Request, res: Response) => {
     `;
 
     const [conteosRows] = await pool.execute(conteosQuery, [circuitoId, establecimientoId, eleccionId]);
+    console.log('Conteos por tipo:', conteosRows);
 
     // Formatear conteos especiales
     const conteos = (conteosRows as any[]).reduce((acc, row) => {
       acc[row.tipo_voto] = row.cantidad;
       return acc;
     }, {});
+    console.log('Conteos formateados:', conteos);
+
+    // Obtener votos observados
+    const observadosQuery = `
+      SELECT COUNT(*) as cantidad
+      FROM Voto
+      WHERE FK_Circuito_ID = ? 
+        AND FK_Establecimiento_ID = ? 
+        AND FK_Eleccion_ID = ?
+        AND es_observado = TRUE
+    `;
+    const [observadosRows] = await pool.execute(observadosQuery, [circuitoId, establecimientoId, eleccionId]);
+    const votosObservados = (observadosRows as any[])[0].cantidad;
+
+    // Calcular porcentajes
+    const votosComunes = (resultadosRows as any[]).reduce((sum: number, row: any) => sum + row.votos, 0);
+    const votosBlanco = conteos.blanco || 0;
+    const votosAnulados = conteos.anulado || 0;
 
     const response = {
-      resultadosComunes: resultadosRows,
-      totalVotos: totalVotos,
-      votosBlanco: conteos.blanco || 0,
-      votosAnulados: conteos.anulado || 0,
-      votosObservados: 0 // No hay columna es_observado en el esquema original
+      circuito: {
+        id: circuitoId,
+        estado: estado,
+        establecimiento: establecimiento
+      },
+      resumen: {
+        totalVotos: totalVotos,
+        votosComunes: votosComunes,
+        votosBlanco: votosBlanco,
+        votosAnulados: votosAnulados,
+        votosObservados: votosObservados
+      },
+      resultadosPorLista: (resultadosRows as any[]).map((row: any) => ({
+        ...row,
+        porcentaje: totalVotos > 0 ? ((row.votos / totalVotos) * 100).toFixed(2) : '0.00'
+      })),
+      porcentajes: {
+        comunes: totalVotos > 0 ? ((votosComunes / totalVotos) * 100).toFixed(2) : '0.00',
+        blanco: totalVotos > 0 ? ((votosBlanco / totalVotos) * 100).toFixed(2) : '0.00',
+        anulados: totalVotos > 0 ? ((votosAnulados / totalVotos) * 100).toFixed(2) : '0.00',
+        observados: totalVotos > 0 ? ((votosObservados / totalVotos) * 100).toFixed(2) : '0.00'
+      }
     };
 
     res.json(response);
   } catch (error) {
     console.error('Error en getResultadosCircuito:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+// Obtener estado actual del circuito del presidente
+export const getEstadoCircuito = async (req: Request, res: Response) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ mensaje: 'Token no proporcionado' });
+
+    const { presidenteId } = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
+
+    // Obtener circuito del presidente
+    const [presidenteRows] = await pool.execute(`
+      SELECT ac.FK_Circuito_ID, ac.FK_Establecimiento_ID, ac.FK_Eleccion_ID
+      FROM abre_circuito ac
+      JOIN Presidente p ON ac.FK_Presidente_CC = p.FK_Ciudadano_CC
+      WHERE p.ID_presidente = ?
+      ORDER BY ac.Fecha DESC
+      LIMIT 1`, [presidenteId]);
+    const presidente = (presidenteRows as any[])[0];
+
+    if (!presidente || !presidente.FK_Circuito_ID) {
+      return res.status(400).json({ mensaje: 'No tiene circuito configurado' });
+    }
+
+    const { FK_Circuito_ID: circuitoId, FK_Establecimiento_ID: establecimientoId, FK_Eleccion_ID: eleccionId } = presidente;
+
+    // Obtener estado del circuito
+    const [estadoRows] = await pool.execute(
+      'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
+      [circuitoId, establecimientoId, eleccionId]
+    );
+    const estado = (estadoRows as any[])[0]?.estado || 'cerrado';
+
+    res.json({ 
+      circuitoId,
+      estado,
+      urnaAbierta: estado === 'abierto'
+    });
+  } catch (error) {
+    console.error('Error en getEstadoCircuito:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+// Obtener resultados generales para la Corte Electoral
+export const getResultadosGenerales = async (req: Request, res: Response) => {
+  try {
+    console.log('Iniciando getResultadosGenerales...');
+
+    // Obtener elección activa
+    const [eleccionRows] = await pool.execute(`
+      SELECT ID, Fecha_inicio, Fecha_fin
+      FROM Eleccion
+      WHERE NOW() BETWEEN Fecha_inicio AND Fecha_fin
+      ORDER BY Fecha_inicio DESC
+      LIMIT 1
+    `);
+    const eleccion = (eleccionRows as any[])[0];
+
+    if (!eleccion) {
+      return res.status(404).json({ mensaje: 'No hay elección activa' });
+    }
+
+    const eleccionId = eleccion.ID;
+
+    // Obtener total de ciudadanos registrados
+    const [ciudadanosRows] = await pool.execute('SELECT COUNT(*) as total FROM Ciudadano');
+    const totalCiudadanos = (ciudadanosRows as any[])[0].total;
+
+    // Obtener total de votantes
+    const [votantesRows] = await pool.execute(`
+      SELECT COUNT(DISTINCT FK_Ciudadano_CC) as total
+      FROM Sufraga
+      WHERE FK_Eleccion_ID = ?
+    `, [eleccionId]);
+    const totalVotantes = (votantesRows as any[])[0].total;
+
+    // Calcular porcentaje de participación
+    const porcentajeParticipacion = totalCiudadanos > 0 ? (totalVotantes / totalCiudadanos) * 100 : 0;
+
+    // Obtener estado de los circuitos
+    const [circuitosRows] = await pool.execute(`
+      SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN estado = 'abierto' THEN 1 ELSE 0 END), 0) as abiertos,
+        COALESCE(SUM(CASE WHEN estado = 'cerrado' THEN 1 ELSE 0 END), 0) as cerrados
+      FROM Circuito
+      WHERE FK_Eleccion_ID = ?
+    `, [eleccionId]);
+    const circuitos = (circuitosRows as any[])[0];
+    
+    // Convertir a números para asegurar comparaciones correctas
+    const circuitosAbiertos = Number(circuitos.abiertos) || 0;
+    const circuitosCerrados = Number(circuitos.cerrados) || 0;
+    const totalCircuitos = Number(circuitos.total) || 0;
+    
+    console.log('Datos de circuitos:', circuitos);
+    console.log('Circuitos abiertos:', circuitosAbiertos, 'tipo:', typeof circuitosAbiertos);
+    console.log('Circuitos cerrados:', circuitosCerrados, 'tipo:', typeof circuitosCerrados);
+
+    const todosCerrados = circuitosAbiertos === 0 && circuitosCerrados > 0;
+    console.log('Todos cerrados:', todosCerrados);
+
+    // Si todos los circuitos están cerrados, obtener resultados finales
+    let resultadosFinales = null;
+    if (todosCerrados) {
+      // Obtener resultados por lista con información del candidato
+      const [resultadosRows] = await pool.execute(`
+        SELECT 
+          l.ID as lista_id,
+          l.numero as lista_numero,
+          pp.ID as partido_id,
+          pp.nombre as partido_nombre,
+          COUNT(v.id) as votos,
+          c.FK_Ciudadano_CC as candidato_cc,
+          ci.nombre as candidato_nombre,
+          c.id_candidato as candidato_id
+        FROM Lista l
+        JOIN Partido_politico pp ON l.FK_Partido_politico_ID = pp.ID
+        LEFT JOIN Comun com ON l.ID = com.FK_Lista_ID AND l.FK_Partido_politico_ID = com.FK_Partido_politico_ID
+        LEFT JOIN Voto v ON com.FK_Voto_ID = v.ID 
+          AND v.FK_Eleccion_ID = ?
+          AND v.tipo_voto = 'comun'
+        LEFT JOIN Candidato c ON l.ID = c.FK_Lista_ID AND l.FK_Partido_politico_ID = c.FK_Partido_politico_ID
+        LEFT JOIN Ciudadano ci ON c.FK_Ciudadano_CC = ci.CC
+        LEFT JOIN Participa_en pe ON c.FK_Ciudadano_CC = pe.FK_Candidato_CC AND pe.FK_Eleccion_ID = ?
+        GROUP BY l.ID, l.FK_Partido_politico_ID, pp.ID, c.FK_Ciudadano_CC, ci.nombre, c.id_candidato
+        HAVING COUNT(v.id) > 0
+        ORDER BY votos DESC
+      `, [eleccionId, eleccionId]);
+
+      const todasLasListas = (resultadosRows as any[]).map((row: any) => ({
+        ...row,
+        porcentaje: totalVotantes > 0 ? (row.votos / totalVotantes) * 100 : 0
+      }));
+
+      // Obtener lista ganadora y candidato ganador
+      const listaGanadora = todasLasListas[0] || null;
+      const candidatoGanador = listaGanadora ? {
+        cc: listaGanadora.candidato_cc,
+        nombre: listaGanadora.candidato_nombre,
+        id: listaGanadora.candidato_id,
+        lista: {
+          id: listaGanadora.lista_id,
+          numero: listaGanadora.lista_numero
+        },
+        partido: {
+          id: listaGanadora.partido_id,
+          nombre: listaGanadora.partido_nombre
+        },
+        votos: listaGanadora.votos,
+        porcentaje: listaGanadora.porcentaje
+      } : null;
+
+      // Obtener conteos por tipo de voto
+      const [conteosRows] = await pool.execute(`
+        SELECT 
+          tipo_voto,
+          COUNT(*) as cantidad
+        FROM Voto
+        WHERE FK_Eleccion_ID = ?
+        GROUP BY tipo_voto
+      `, [eleccionId]);
+
+      const conteos = (conteosRows as any[]).reduce((acc, row) => {
+        acc[row.tipo_voto] = row.cantidad;
+        return acc;
+      }, {});
+
+      // Obtener votos observados
+      const [observadosRows] = await pool.execute(`
+        SELECT COUNT(*) as cantidad
+        FROM Voto
+        WHERE FK_Eleccion_ID = ?
+          AND es_observado = TRUE
+      `, [eleccionId]);
+      const votosObservados = (observadosRows as any[])[0].cantidad;
+
+      resultadosFinales = {
+        candidatoGanador,
+        listaGanadora,
+        todasLasListas,
+        resumen: {
+          totalVotos: totalVotantes,
+          votosBlanco: conteos.blanco || 0,
+          votosAnulados: conteos.anulado || 0,
+          votosObservados: votosObservados
+        }
+      };
+    }
+
+    const response = {
+      totalCiudadanos,
+      totalVotantes,
+      porcentajeParticipacion,
+      circuitosAbiertos: circuitosAbiertos,
+      circuitosCerrados: circuitosCerrados,
+      totalCircuitos: totalCircuitos,
+      todosCerrados,
+      resultadosFinales
+    };
+
+    console.log('Respuesta resultados generales:', response);
+    res.json(response);
+  } catch (error) {
+    console.error('Error en getResultadosGenerales:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 }; 

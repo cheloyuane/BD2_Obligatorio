@@ -51,6 +51,20 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
 
     const { FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID } = circuitoEleccion[0];
 
+    // Verificar el estado del circuito antes de permitir el voto
+    const [estadoCircuito] = await connection.query<RowDataPacket[]>(
+      'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?',
+      [FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID]
+    );
+
+    if (estadoCircuito.length === 0) {
+      return res.status(400).json({ mensaje: 'Circuito no encontrado' });
+    }
+
+    if (estadoCircuito[0].estado === 'cerrado') {
+      return res.status(400).json({ mensaje: 'La urna está cerrada. No se pueden emitir votos en este momento.' });
+    }
+
     // Verificar el circuito asignado al ciudadano para el voto Observado
     const [asignacionCiudadano] = await connection.query<RowDataPacket[]>(
       'SELECT FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID FROM es_asignado WHERE FK_Ciudadano_CC = ?',
@@ -118,7 +132,7 @@ export const obtenerResultadosCircuito = async (req: Request, res: Response): Pr
     // Obtener resultados por lista (solo votos comunes)
     const [resultadosComunes] = await pool.query<RowDataPacket[]>(`
       SELECT 
-        L.número as lista_numero,
+        L.numero as lista_numero,
         PP.nombre as partido_nombre,
         COUNT(V.ID) as votos
       FROM Voto V
@@ -191,6 +205,7 @@ export const obtenerCircuitoActual = async (req: CustomRequest, res: Response): 
         c.ID as circuito_id,
         c.FK_establecimiento_ID,
         c.FK_Eleccion_ID,
+        c.estado as estado_circuito,
         e.nombre as establecimiento_nombre,
         e.tipo as establecimiento_tipo,
         e.direccion as establecimiento_direccion
@@ -224,6 +239,8 @@ export const obtenerCircuitoActual = async (req: CustomRequest, res: Response): 
 
     const response = {
       id: circuitoActual[0].circuito_id,
+      estado: circuitoActual[0].estado_circuito || 'cerrado',
+      urnaAbierta: circuitoActual[0].estado_circuito === 'abierto',
       establecimiento: {
         nombre: circuitoActual[0].establecimiento_nombre,
         tipo: circuitoActual[0].establecimiento_tipo,
@@ -279,4 +296,32 @@ export const diagnosticarDatos = async (req: Request, res: Response): Promise<vo
 
 export const ejemploVoto = (req: Request, res: Response) => {
   res.json({ mensaje: 'Controlador de voto funcionando' });  
+};
+
+export const obtenerEstadoCircuito = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { circuitoId } = req.params;
+
+    // Obtener el estado del circuito
+    const [circuito] = await pool.query<RowDataPacket[]>(
+      'SELECT estado FROM Circuito WHERE ID = ?',
+      [circuitoId]
+    );
+
+    if (circuito.length === 0) {
+      res.status(404).json({ mensaje: 'Circuito no encontrado' });
+      return;
+    }
+
+    const circuitoAbierto = circuito[0].estado === 'abierto';
+
+    res.json({ 
+      circuitoAbierto,
+      estado: circuito[0].estado
+    });
+
+  } catch (error) {
+    console.error('Error al obtener estado del circuito:', error);
+    res.status(500).json({ mensaje: 'Error en el servidor' });
+  }
 }; 

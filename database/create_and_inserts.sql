@@ -41,6 +41,7 @@ CREATE TABLE `Lista` (
     `integrantes` TEXT,
     `organo` VARCHAR(100),
     `orden` INT,
+    `imagen_url` VARCHAR(255),
     PRIMARY KEY (`ID`, `FK_Partido_politico_ID`),
     FOREIGN KEY (`FK_Partido_politico_ID`) REFERENCES `Partido_politico`(`ID`) ON DELETE NO ACTION ON UPDATE CASCADE
 );

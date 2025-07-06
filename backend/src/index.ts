@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './routes/authRoutes';
 import votoRoutes from './routes/votoRoutes';
 import partidoRoutes from './routes/partidoRoutes';
 import listaRoutes from './routes/listaRoutes';
 import adminRoutes from './routes/adminRoutes';
+import { getResultadosGenerales } from './controllers/adminController';
 
 dotenv.config();
 
@@ -21,6 +23,9 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json());
 
+// Servir archivos estáticos desde la carpeta assets del frontend
+app.use('/src/assets', express.static(path.join(__dirname, '../../frontend/src/assets')));
+
 // Ruta de prueba
 app.get('/test', (req, res) => {
   res.json({ mensaje: 'Servidor funcionando correctamente' });
@@ -32,6 +37,9 @@ app.use('/api/votos', votoRoutes);
 app.use('/api/partidos', partidoRoutes);
 app.use('/api/listas', listaRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Ruta directa para la Corte Electoral
+app.get('/api/corte-electoral/resultados-generales', getResultadosGenerales);
 
 // Manejador de errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -53,4 +61,5 @@ app.listen(PORT, () => {
   console.log('- POST /api/admin/configurar-circuito');
   console.log('- POST /api/admin/abrir-urna');
   console.log('- POST /api/admin/cerrar-urna');
+  console.log('- GET /api/corte-electoral/resultados-generales');
 }); 

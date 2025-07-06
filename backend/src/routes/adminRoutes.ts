@@ -4,8 +4,9 @@ import {
   getEleccionActiva, 
   configurarCircuito, 
   abrirUrna, 
-  cerrarUrna,
-  getResultadosCircuito
+  cerrarUrna, 
+  getResultadosCircuito, 
+  getEstadoCircuito,
 } from '../controllers/adminController';
 import { verificarToken, esMesa } from '../middlewares/authMiddleware';
 
@@ -28,7 +29,12 @@ router.post('/configurar-circuito', configurarCircuito);
 router.post('/abrir-urna', abrirUrna);
 router.post('/cerrar-urna', cerrarUrna);
 
+// Obtener estado del circuito
+router.get('/estado-circuito', getEstadoCircuito);
+
 // Obtener resultados del circuito
-router.get('/resultados/:circuitoId/:establecimientoId/:eleccionId', getResultadosCircuito);
+router.get('/resultados', getResultadosCircuito);
+
+
 
 export default router; 

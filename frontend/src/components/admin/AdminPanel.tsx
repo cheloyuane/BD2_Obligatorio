@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Logo_corte_electoral from '../../assets/Logo_corte_electoral.jpg';
 
 interface CircuitoInfo {
   id: number;
@@ -13,11 +14,36 @@ interface CircuitoInfo {
 }
 
 interface ResultadosVotos {
-  resultadosComunes: any[];
-  totalVotos: number;
-  votosBlanco: number;
-  votosAnulados: number;
-  votosObservados: number;
+  circuito: {
+    id: number;
+    estado: string;
+    establecimiento: {
+      nombre: string;
+      tipo: string;
+      direccion: string;
+    };
+  };
+  resumen: {
+    totalVotos: number;
+    votosComunes: number;
+    votosBlanco: number;
+    votosAnulados: number;
+    votosObservados: number;
+  };
+  resultadosPorLista: Array<{
+    lista_id: number;
+    lista_numero: number;
+    partido_id: number;
+    partido_nombre: string;
+    votos: number;
+    porcentaje: string;
+  }>;
+  porcentajes: {
+    comunes: string;
+    blanco: string;
+    anulados: string;
+    observados: string;
+  };
 }
 
 const AdminPanel: React.FC = () => {
@@ -153,13 +179,13 @@ const AdminPanel: React.FC = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      if (!circuitoConfigurado || !circuitoActual || !eleccionActiva) {
+      if (!circuitoConfigurado) {
         setError('Debe configurar un circuito primero');
         return;
       }
 
       const response = await axios.get(
-        `http://localhost:3001/api/admin/resultados/${circuitoConfigurado}/${circuitoActual.establecimiento.id}/${eleccionActiva.id}`,
+        'http://localhost:3001/api/admin/resultados',
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -196,6 +222,10 @@ const AdminPanel: React.FC = () => {
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
+            {/*Logo+ titulo*/ }
+            <div className="flex items-center space-x-4">
+              <img src={Logo_corte_electoral} alt="Logo Corte Electoral" className="h-25 w-auto" />
+            </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Panel de Administración
@@ -244,13 +274,14 @@ const AdminPanel: React.FC = () => {
                     <span className="font-medium">Circuito:</span> {circuitoActual.id}
                   </div>
                   
+                  {/* Se saca este boton que no tenia ninguna funcion 
                   <button
                     onClick={() => configurarCircuito(circuitoActual.id)}
                     disabled={loading || circuitoConfigurado === circuitoActual.id}
                     className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {circuitoConfigurado === circuitoActual.id ? 'Circuito Configurado' : 'Configurar Este Circuito'}
-                  </button>
+                  </button>*/}
                 </div>
               ) : (
                 <p className="text-gray-500">No hay circuito disponible</p>
@@ -262,9 +293,10 @@ const AdminPanel: React.FC = () => {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Estado de Votación
+                CONTROL DE CIRCUITO
               </h3>
               
+              {/* Esto lo saque porque no estaba mostrando nada si tiene que tener una funcion descomentarlo
               <div className="space-y-4">
                 <div className="flex items-center">
                   <span className="font-medium mr-2">Estado:</span>
@@ -273,7 +305,7 @@ const AdminPanel: React.FC = () => {
                   }`}>
                     {urnaAbierta ? 'Votación Activa' : 'Sin Votos'}
                   </span>
-                </div>
+                </div>*/}
                 
                 <div className="space-y-2">
                   <button
@@ -281,7 +313,7 @@ const AdminPanel: React.FC = () => {
                     disabled={loading || urnaAbierta || !circuitoConfigurado}
                     className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
                   >
-                    Verificar Estado de Urna
+                    Abrir Urna del Circuito
                   </button>
                   
                   <button
@@ -289,7 +321,7 @@ const AdminPanel: React.FC = () => {
                     disabled={loading || !urnaAbierta}
                     className="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50"
                   >
-                    Verificar Cierre de Urna
+                    Cerrar Urna del Circuito
                   </button>
                 </div>
               </div>
@@ -305,37 +337,58 @@ const AdminPanel: React.FC = () => {
                 </h3>
                 <button
                   onClick={obtenerResultados}
-                  disabled={loading || !urnaAbierta}
+                  disabled={loading || urnaAbierta}
                   className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  Contar Votos del Circuito
+                  {urnaAbierta ? 'Cierre la urna para ver resultados' : 'Ver Resultados del Circuito'}
                 </button>
               </div>
               
               {resultados && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-gray-900">{resultados.totalVotos}</div>
+                <div className="space-y-6">
+                  {/* Información del Circuito */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Información del Circuito</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      <div><span className="font-medium">Establecimiento:</span> {resultados.circuito.establecimiento.nombre}</div>
+                      <div><span className="font-medium">Tipo:</span> {resultados.circuito.establecimiento.tipo}</div>
+                      <div><span className="font-medium">Dirección:</span> {resultados.circuito.establecimiento.direccion}</div>
+                      <div><span className="font-medium">Estado:</span> <span className="text-green-600 font-semibold">{resultados.circuito.estado}</span></div>
+                    </div>
+                  </div>
+
+                  {/* Resumen de Votos */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-gray-900">{resultados.resumen.totalVotos}</div>
                       <div className="text-sm text-gray-600">Total de Votos</div>
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-900">{resultados.votosBlanco}</div>
+                    <div className="bg-green-50 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-green-900">{resultados.resumen.votosComunes}</div>
+                      <div className="text-sm text-green-600">Votos Comunes</div>
+                      <div className="text-xs text-green-500">{resultados.porcentajes.comunes}%</div>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-blue-900">{resultados.resumen.votosBlanco}</div>
                       <div className="text-sm text-blue-600">Votos en Blanco</div>
+                      <div className="text-xs text-blue-500">{resultados.porcentajes.blanco}%</div>
                     </div>
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-red-900">{resultados.votosAnulados}</div>
+                    <div className="bg-red-50 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-red-900">{resultados.resumen.votosAnulados}</div>
                       <div className="text-sm text-red-600">Votos Anulados</div>
+                      <div className="text-xs text-red-500">{resultados.porcentajes.anulados}%</div>
                     </div>
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-yellow-900">{resultados.votosObservados}</div>
+                    <div className="bg-yellow-50 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-yellow-900">{resultados.resumen.votosObservados}</div>
                       <div className="text-sm text-yellow-600">Votos Observados</div>
+                      <div className="text-xs text-yellow-500">{resultados.porcentajes.observados}%</div>
                     </div>
                   </div>
                   
-                  {resultados.resultadosComunes.length > 0 && (
+                  {/* Resultados por Lista */}
+                  {resultados.resultadosPorLista.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Votos por Lista:</h4>
+                      <h4 className="font-medium text-gray-900 mb-4">Resultados por Lista:</h4>
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
@@ -349,19 +402,25 @@ const AdminPanel: React.FC = () => {
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Votos
                               </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Porcentaje
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {resultados.resultadosComunes.map((resultado: any, index: number) => (
-                              <tr key={index}>
+                            {resultados.resultadosPorLista.map((resultado, index) => (
+                              <tr key={index} className={index === 0 ? 'bg-green-50' : ''}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                   {resultado.lista_numero}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                   {resultado.partido_nombre}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                   {resultado.votos}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {resultado.porcentaje}%
                                 </td>
                               </tr>
                             ))}
@@ -376,7 +435,6 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
   );
 };
 
