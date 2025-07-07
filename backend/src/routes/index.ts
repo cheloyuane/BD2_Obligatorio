@@ -6,12 +6,9 @@ import { getDepartamentos, getCircuitosPorDepartamento } from '../controllers/ad
 
 const router = Router();
 
-// Aquí se importarán y usarán las rutas de los diferentes módulos
-// Ejemplo:
-// import votoRoutes from './votoRoutes';
-// router.use('/votos', votoRoutes);
 
-// Rutas públicas para departamentos y circuitos
+
+// Rutas para obtener los departamentos y los circuitos de departamentos, esto se va a usar en Votar.tsx
 router.get('/departamentos', getDepartamentos);
 router.get('/circuitos/:departamentoId', getCircuitosPorDepartamento);
 

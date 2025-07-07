@@ -168,70 +168,28 @@ const Votar: React.FC = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
     if (!token) {
       navigate('/login');
       return;
     }
 
-    // Cargar información del circuito primero
+    // Siempre consultar el backend para obtener el estado real del circuito y la urna
     const cargarCircuito = async () => {
+      setLoading(true);
       try {
-        // Obtener información del circuito desde el localStorage o del backend
-        let circuitoInfo = null;
-        
-        // Primero intentar obtener del localStorage (datos del login)
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            if (user.circuito) {
-              console.log('Usando información del circuito del login:', user.circuito);
-              circuitoInfo = user.circuito;
-            }
-          } catch (error) {
-            console.log('Error al parsear datos del usuario:', error);
-          }
+        const circuitoRes = await axios.get('http://localhost:3001/api/votos/circuito-actual', {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 5000
+        });
+        setCircuitoActual(circuitoRes.data);
+        // Solo cargar partidos y listas si la urna está abierta
+        if (circuitoRes.data.urnaAbierta) {
+          await cargarPartidosYListas(token);
         }
-
-        // Si no hay información del circuito en localStorage, obtener del backend
-        if (!circuitoInfo) {
-          try {
-            console.log('Solicitando información del circuito actual desde backend...');
-            const circuitoRes = await axios.get('http://localhost:3001/api/votos/circuito-actual', {
-              headers: { Authorization: `Bearer ${token}` },
-              timeout: 5000 // 5 segundos de timeout
-            });
-            console.log('Circuito actual recibido del backend:', circuitoRes.data);
-            circuitoInfo = circuitoRes.data;
-          } catch (error) {
-            console.log('No se pudo obtener información del circuito actual:', error);
-            if (axios.isAxiosError(error)) {
-              console.log('Status:', error.response?.status);
-              console.log('Data:', error.response?.data);
-            }
-          }
-        }
-
-        // Establecer la información del circuito
-        if (circuitoInfo) {
-          setCircuitoActual(circuitoInfo);
-          
-          // Solo cargar partidos y listas si la urna está abierta
-          if (circuitoInfo.urnaAbierta) {
-            console.log('Urna abierta, cargando partidos y listas...');
-            await cargarPartidosYListas(token);
-          } else {
-            console.log('Urna cerrada, no es necesario cargar partidos y listas');
-            setLoading(false);
-          }
-        } else {
-          setLoading(false);
-        }
-
       } catch (error) {
         setError('Error al cargar la información del circuito');
-        console.error('Error:', error);
+        setCircuitoActual(null);
+      } finally {
         setLoading(false);
       }
     };

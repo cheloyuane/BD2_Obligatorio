@@ -13,7 +13,7 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     const presidenteId = decoded.presidenteId;
 
-    // Nueva consulta: buscar circuito asignado a la mesa donde el presidente es titular
+    // Buscar el circuito de la mesa donde el presidente es titular 
     const query = `
       SELECT 
         p.ID_presidente as presidente_id,
