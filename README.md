@@ -7,7 +7,7 @@ Sistema de votación electrónica desarrollado como proyecto obligatorio para la
 - Sistema de votación electrónica
 - Gestión de circuitos electorales
 - Registro y conteo de votos
-- Diferentes tipos de votos (común, anulado, observado)
+- Diferentes tipos de votos (común, blanco, anulado, observado)
 - Interfaz de usuario moderna y responsiva
 
 ## Tecnologías Utilizadas
@@ -42,10 +42,7 @@ cd frontend
 npm install
 ```
 
-4. Configurar variables de entorno
-- Crear archivo `.env` en la carpeta backend basado en `.env.example`
-
-5. Iniciar el servidor de desarrollo
+4. Iniciar el servidor de desarrollo
 ```bash
 # Backend
 cd backend
@@ -62,5 +59,5 @@ npm start
 BD2_Obligatorio/
 ├── backend/           # Servidor Node.js
 ├── frontend/          # Aplicación React
-└── docs/             # Documentación
+└── database/             # Scripts de creación de las tablas e inserción de datos de prueba
 ``` 
