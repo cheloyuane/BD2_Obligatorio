@@ -1,22 +1,3 @@
--- Datos de prueba para presidentes de mesa (Personajes famosos)
-
--- Insertar ciudadanos que serán presidentes (usando CC diferentes)
-INSERT INTO Ciudadano (CC, nombre, CI, Fecha_nacimiento) VALUES
-('CC001', 'Leticia Mármol', '1234567-8', '1985-01-15'),
-('CC002', 'Pedro Gómez', '8765432-1', '1970-05-20'),
-('CC003', 'Sofía Loren', '1122334-4', '1992-11-30'),
-('CC004', 'Carlos Perez', '9988776-6', '1965-03-10'),
-('CC005', 'Mariano Sosa', '5544332-2', '1980-07-25'),
-('CC101', 'Albert Einstein', '1111111-1', '1879-03-14'),
-('CC102', 'Marie Curie', '2222222-2', '1867-11-07'),
-('CC103', 'Leonardo da Vinci', '3333333-3', '1452-04-15'),
-('CC104', 'Ada Lovelace', '4444444-4', '1815-12-10'),
-('CC105', 'Nikola Tesla', '5555555-5', '1856-07-10'),
-('CC666', 'Los TussiWarrior', '6664206-9', '2000-02-29'),
-('CC875', 'El Maestruli', '1542874-7', '1970-01-13'),
-('CC900', 'Payaso Pildorita', '2245528-5', '1975-07-15'),
-('CC901', 'Hasbulla', '1221548-7', '1991-07-18'),
-('CC902', 'El Colorado De Don Omar', '4584842-1', '1975-11-24');
 
 
 -- Insertar miembros de mesa
