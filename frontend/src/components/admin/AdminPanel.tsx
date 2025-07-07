@@ -76,7 +76,6 @@ const AdminPanel: React.FC = () => {
       navigate('/login-presidente');
       return;
     }
-
     cargarDatosIniciales();
   }, [navigate]);
 
@@ -99,10 +98,13 @@ const AdminPanel: React.FC = () => {
       setEleccionActiva(eleccionRes.data);
       setCircuitoConfigurado(presidenteRes.data.circuito?.id || null);
       setUrnaAbierta(presidenteRes.data.urnaAbierta || false);
-
+      setError('');
     } catch (error) {
       console.error('Error al cargar datos:', error);
       setError('Error al cargar la información');
+      setCircuitoActual(null);
+      setCircuitoConfigurado(null);
+      setUrnaAbierta(false);
     } finally {
       setLoading(false);
     }
@@ -287,18 +289,9 @@ const AdminPanel: React.FC = () => {
                   <div>
                     <span className="font-medium">Circuito:</span> {circuitoActual.id}
                   </div>
-                  
-                  {/* Se saca este boton que no tenia ninguna funcion 
-                  <button
-                    onClick={() => configurarCircuito(circuitoActual.id)}
-                    disabled={loading || circuitoConfigurado === circuitoActual.id}
-                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {circuitoConfigurado === circuitoActual.id ? 'Circuito Configurado' : 'Configurar Este Circuito'}
-                  </button>*/}
                 </div>
               ) : (
-                <p className="text-gray-500">No hay circuito disponible</p>
+                <p className="text-gray-500">No hay circuito asignado a este presidente.</p>
               )}
             </div>
           </div>

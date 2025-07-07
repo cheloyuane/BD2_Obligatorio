@@ -35,6 +35,4 @@ router.get('/estado-circuito', getEstadoCircuito);
 // Obtener resultados del circuito
 router.get('/resultados', getResultadosCircuito);
 
-
-
 export default router; 

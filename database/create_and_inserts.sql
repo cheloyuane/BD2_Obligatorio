@@ -189,9 +189,24 @@ CREATE TABLE `es_asignado` (
 -- INSERTS
 
 -- 1. Departamento
-INSERT INTO `Departamento` (`ID`, `nombre`) VALUES
-(1, 'Montevideo'),
-(2, 'Canelones');
+INSERT INTO departamentos (id, nombre) VALUES
+(3, 'Artigas'),
+(4, 'Cerro Largo'),
+(5, 'Colonia'),
+(6, 'Durazno'),
+(7, 'Flores'),
+(8, 'Florida'),
+(9, 'Lavalleja'),
+(10, 'Maldonado'),
+(11, 'Paysandú'),
+(12, 'Río Negro'),
+(13, 'Rivera'),
+(14, 'Rocha'),
+(15, 'Salto'),
+(16, 'San José'),
+(17, 'Soriano'),
+(18, 'Tacuarembó'),
+(19, 'Treinta y Tres');
 
 -- 2. Zona
 INSERT INTO `Zona` (`ID`, `nombre`, `FK_Departamento_ID`) VALUES
