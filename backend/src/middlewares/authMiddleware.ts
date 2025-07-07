@@ -7,6 +7,22 @@ interface JwtPayload {
   tipo: string;
   nombre?: string;
   presidenteId?: number;
+  circuitoAsignado?: {
+    id: number;
+    establecimiento: {
+      nombre: string;
+      tipo: string;
+      direccion: string;
+    };
+  };
+  circuitoVotacion?: {
+    id: number;
+    establecimiento: {
+      nombre: string;
+      tipo: string;
+      direccion: string;
+    };
+  };
 }
 
 declare global {
@@ -15,6 +31,24 @@ declare global {
       user?: {
         id: string;
         tipo: string;
+        nombre?: string;
+        presidenteId?: number;
+        circuitoAsignado?: {
+          id: number;
+          establecimiento: {
+            nombre: string;
+            tipo: string;
+            direccion: string;
+          };
+        };
+        circuitoVotacion?: {
+          id: number;
+          establecimiento: {
+            nombre: string;
+            tipo: string;
+            direccion: string;
+          };
+        };
       };
     }
   }
@@ -44,7 +78,11 @@ export const verificarToken = async (req: Request, res: Response, next: NextFunc
 
     req.user = {
       id: decoded.id,
-      tipo: decoded.tipo
+      tipo: decoded.tipo,
+      nombre: decoded.nombre,
+      presidenteId: decoded.presidenteId,
+      circuitoAsignado: decoded.circuitoAsignado,
+      circuitoVotacion: decoded.circuitoVotacion
     };
 
     next();

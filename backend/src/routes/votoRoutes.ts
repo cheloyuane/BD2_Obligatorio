@@ -4,7 +4,7 @@ import { verificarToken, esVotante, esMesa } from '../middlewares/authMiddleware
 
 const router = Router();
 
-// Ruta de diagnóstico (temporal, para desarrollo)
+// Ruta de diagnóstico 
 router.get('/diagnostico', diagnosticarDatos as RequestHandler);
 
 

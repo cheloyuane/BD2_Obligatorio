@@ -111,6 +111,61 @@ const Votar: React.FC = () => {
     }
   };
 
+  // Función para actualizar el estado del circuito
+  const actualizarEstadoCircuito = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Actualizando estado del circuito...');
+      const circuitoRes = await axios.get('http://localhost:3001/api/votos/circuito-actual', {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000
+      });
+      
+      console.log('Nuevo estado del circuito:', circuitoRes.data);
+      setCircuitoActual(circuitoRes.data);
+      
+      // Si la urna ahora está abierta, cargar partidos y listas
+      if (circuitoRes.data.urnaAbierta && partidos.length === 0) {
+        console.log('Urna ahora abierta, cargando partidos y listas...');
+        await cargarPartidosYListas(token);
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado del circuito:', error);
+      setError('Error al actualizar el estado del circuito');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función separada para cargar partidos y listas
+  const cargarPartidosYListas = async (token: string) => {
+    try {
+      const [partidosRes, listasRes] = await Promise.all([
+        axios.get('http://localhost:3001/api/partidos', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get('http://localhost:3001/api/listas', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      setPartidos(partidosRes.data);
+      setListas(listasRes.data);
+      console.log('Partidos y listas cargados:', partidosRes.data.length, listasRes.data.length);
+    } catch (error) {
+      console.error('Error al cargar partidos y listas:', error);
+      setError('Error al cargar los datos de votación');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -118,49 +173,28 @@ const Votar: React.FC = () => {
       return;
     }
 
-    // Cargar partidos, listas y obtener información del circuito actual
-    const cargarDatos = async () => {
+    // Siempre consultar el backend para obtener el estado real del circuito y la urna
+    const cargarCircuito = async () => {
+      setLoading(true);
       try {
-        const [partidosRes, listasRes] = await Promise.all([
-          axios.get('http://localhost:3001/api/partidos', {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          axios.get('http://localhost:3001/api/listas', {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        ]);
-
-        setPartidos(partidosRes.data);
-        setListas(listasRes.data);
-        console.log('Listas cargadas:', listasRes.data);
-
-        // Obtener información del circuito actual
-        try {
-          console.log('Solicitando información del circuito actual...');
-          const circuitoRes = await axios.get('http://localhost:3001/api/votos/circuito-actual', {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 5000 // 5 segundos de timeout
-          });
-          console.log('Circuito actual recibido:', circuitoRes.data);
-          setCircuitoActual(circuitoRes.data);
-        } catch (error) {
-          console.log('No se pudo obtener información del circuito actual:', error);
-          if (axios.isAxiosError(error)) {
-            console.log('Status:', error.response?.status);
-            console.log('Data:', error.response?.data);
-          }
-          // No es crítico, continuamos sin mostrar la información del circuito
+        const circuitoRes = await axios.get('http://localhost:3001/api/votos/circuito-actual', {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 5000
+        });
+        setCircuitoActual(circuitoRes.data);
+        // Solo cargar partidos y listas si la urna está abierta
+        if (circuitoRes.data.urnaAbierta) {
+          await cargarPartidosYListas(token);
         }
-
       } catch (error) {
-        setError('Error al cargar los datos');
-        console.error('Error:', error);
+        setError('Error al cargar la información del circuito');
+        setCircuitoActual(null);
       } finally {
         setLoading(false);
       }
     };
 
-    cargarDatos();
+    cargarCircuito();
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -260,10 +294,11 @@ const Votar: React.FC = () => {
             </div>
 
             <button
-              onClick={() => window.location.reload()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition duration-200"
+              onClick={actualizarEstadoCircuito}
+              disabled={loading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition duration-200 disabled:opacity-50"
             >
-              Actualizar Estado
+              {loading ? 'Actualizando...' : 'Actualizar Estado'}
             </button>
           </div>
         </div>

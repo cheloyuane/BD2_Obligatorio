@@ -12,7 +12,7 @@ import { verificarToken, esMesa } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
-// Todas las rutas requieren autenticación de presidente de mesa
+// Las rutas verifican la info del presidente 
 router.use(verificarToken);
 router.use(esMesa);
 
@@ -34,7 +34,5 @@ router.get('/estado-circuito', getEstadoCircuito);
 
 // Obtener resultados del circuito
 router.get('/resultados', getResultadosCircuito);
-
-
 
 export default router; 

@@ -13,12 +13,12 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     const presidenteId = decoded.presidenteId;
 
-    // Obtener información del presidente y su circuito (usando abre_circuito)
+    // Buscar el circuito de la mesa donde el presidente es titular 
     const query = `
       SELECT 
         p.ID_presidente as presidente_id,
         ci.nombre as presidente_nombre,
-        ac.FK_Circuito_ID as circuito_id,
+        c.ID as circuito_id,
         c.ID as circuito_numero,
         e.ID as establecimiento_id,
         e.nombre as establecimiento_nombre,
@@ -26,13 +26,10 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
         e.direccion as establecimiento_direccion
       FROM Presidente p
       JOIN Ciudadano ci ON p.FK_Ciudadano_CC = ci.CC
-      LEFT JOIN abre_circuito ac ON p.FK_Ciudadano_CC = ac.FK_Presidente_CC
-      LEFT JOIN Circuito c ON ac.FK_Circuito_ID = c.ID 
-        AND ac.FK_Establecimiento_ID = c.FK_establecimiento_ID 
-        AND ac.FK_Eleccion_ID = c.FK_Eleccion_ID
-      LEFT JOIN Establecimiento e ON c.FK_establecimiento_ID = e.ID
+      JOIN Mesa m ON m.FK_Presidente_CC = p.FK_Ciudadano_CC
+      JOIN Circuito c ON c.FK_Mesa_ID = m.ID
+      JOIN Establecimiento e ON c.FK_establecimiento_ID = e.ID
       WHERE p.ID_presidente = ?
-      ORDER BY ac.Fecha DESC
       LIMIT 1
     `;
 
@@ -40,7 +37,7 @@ export const getPresidenteInfo = async (req: Request, res: Response) => {
     const presidente = (rows as any[])[0];
 
     if (!presidente) {
-      return res.status(404).json({ mensaje: 'Presidente no encontrado' });
+      return res.status(404).json({ mensaje: 'Presidente no encontrado o no tiene circuito asignado' });
     }
 
     // Verificar estado del circuito
@@ -155,26 +152,27 @@ export const abrirUrna = async (req: Request, res: Response) => {
 
     const { presidenteId } = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
 
-    // Obtener circuito del presidente
-    const [presidenteRows] = await pool.execute(`
-      SELECT ac.FK_Circuito_ID, ac.FK_Establecimiento_ID, ac.FK_Eleccion_ID
-      FROM abre_circuito ac
-      JOIN Presidente p ON ac.FK_Presidente_CC = p.FK_Ciudadano_CC
+    // Obtener circuito del presidente (usando la relación Mesa → Circuito)
+    const [circuitoRows] = await pool.execute(`
+      SELECT c.ID as circuito_id, c.FK_establecimiento_ID as establecimiento_id, c.FK_Eleccion_ID as eleccion_id, p.FK_Ciudadano_CC as presidente_cc
+      FROM Presidente p
+      JOIN Mesa m ON m.FK_Presidente_CC = p.FK_Ciudadano_CC
+      JOIN Circuito c ON c.FK_Mesa_ID = m.ID
       WHERE p.ID_presidente = ?
-      ORDER BY ac.Fecha DESC
-      LIMIT 1`, [presidenteId]);
-    const presidente = (presidenteRows as any[])[0];
+      LIMIT 1
+    `, [presidenteId]);
+    const circuito = (circuitoRows as any[])[0];
 
-    if (!presidente || !presidente.FK_Circuito_ID) {
-      return res.status(400).json({ mensaje: 'Debe configurar un circuito primero' });
+    if (!circuito) {
+      return res.status(400).json({ mensaje: 'No tiene circuito asignado' });
     }
 
-    const { FK_Circuito_ID: circuitoId, FK_Establecimiento_ID: establecimientoId, FK_Eleccion_ID: eleccionId } = presidente;
+    const { circuito_id, establecimiento_id, eleccion_id, presidente_cc } = circuito;
 
     // Verificar estado actual del circuito
     const [estadoRows] = await pool.execute(
       'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
-      [circuitoId, establecimientoId, eleccionId]
+      [circuito_id, establecimiento_id, eleccion_id]
     );
     const estadoActual = (estadoRows as any[])[0]?.estado;
 
@@ -185,7 +183,13 @@ export const abrirUrna = async (req: Request, res: Response) => {
     // Actualizar estado a 'abierto'
     await pool.execute(
       'UPDATE Circuito SET estado = "abierto" WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?', 
-      [circuitoId, establecimientoId, eleccionId]
+      [circuito_id, establecimiento_id, eleccion_id]
+    );
+
+    // Registrar en abre_circuito
+    await pool.execute(
+      'INSERT INTO abre_circuito (Fecha, FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, FK_Presidente_CC) VALUES (NOW(), ?, ?, ?, ?)',
+      [circuito_id, establecimiento_id, eleccion_id, presidente_cc]
     );
 
     res.json({ mensaje: 'Urna abierta: ahora se aceptan votos' });
@@ -619,10 +623,74 @@ export const getResultadosGenerales = async (req: Request, res: Response) => {
       `, [eleccionId]);
       const votosObservados = (observadosRows as any[])[0].cantidad;
 
+      // Obtener resultados por departamento
+      const [resultadosDepartamentoRows] = await pool.execute(`
+        SELECT 
+          d.ID as departamento_id,
+          d.nombre as departamento_nombre,
+          COUNT(DISTINCT s.FK_Ciudadano_CC) as total_votantes,
+          COUNT(DISTINCT ea.FK_Ciudadano_CC) as total_ciudadanos_asignados,
+          ROUND((COUNT(DISTINCT s.FK_Ciudadano_CC) / COUNT(DISTINCT ea.FK_Ciudadano_CC)) * 100, 2) as porcentaje_participacion
+        FROM Departamento d
+        LEFT JOIN Zona z ON d.ID = z.FK_Departamento_ID
+        LEFT JOIN Establecimiento e ON z.ID = e.FK_Zona_ID
+        LEFT JOIN Circuito cir ON e.ID = cir.FK_establecimiento_ID AND cir.FK_Eleccion_ID = ?
+        LEFT JOIN es_asignado ea ON cir.ID = ea.FK_Circuito_ID 
+          AND cir.FK_establecimiento_ID = ea.FK_Establecimiento_ID 
+          AND cir.FK_Eleccion_ID = ea.FK_Eleccion_ID
+        LEFT JOIN Sufraga s ON cir.ID = s.FK_Circuito_ID 
+          AND cir.FK_establecimiento_ID = s.FK_Establecimiento_ID 
+          AND cir.FK_Eleccion_ID = s.FK_Eleccion_ID
+        GROUP BY d.ID, d.nombre
+        ORDER BY d.nombre
+      `, [eleccionId]);
+
+      // Obtener resultados por lista por departamento
+      const [resultadosListaDepartamentoRows] = await pool.execute(`
+        SELECT 
+          d.ID as departamento_id,
+          d.nombre as departamento_nombre,
+          l.ID as lista_id,
+          l.numero as lista_numero,
+          pp.ID as partido_id,
+          pp.nombre as partido_nombre,
+          COUNT(v.id) as votos
+        FROM Departamento d
+        JOIN Zona z ON d.ID = z.FK_Departamento_ID
+        JOIN Establecimiento e ON z.ID = e.FK_Zona_ID
+        JOIN Circuito cir ON e.ID = cir.FK_establecimiento_ID AND cir.FK_Eleccion_ID = ?
+        JOIN Voto v ON cir.ID = v.FK_Circuito_ID 
+          AND cir.FK_establecimiento_ID = v.FK_Establecimiento_ID 
+          AND cir.FK_Eleccion_ID = v.FK_Eleccion_ID
+        JOIN Comun com ON v.ID = com.FK_Voto_ID
+        JOIN Lista l ON com.FK_Lista_ID = l.ID AND com.FK_Partido_politico_ID = l.FK_Partido_politico_ID
+        JOIN Partido_politico pp ON l.FK_Partido_politico_ID = pp.ID
+        WHERE v.tipo_voto = 'comun'
+        GROUP BY d.ID, d.nombre, l.ID, l.numero, pp.ID, pp.nombre
+        HAVING COUNT(v.id) > 0
+        ORDER BY d.nombre, votos DESC
+      `, [eleccionId]);
+
+      // Organizar resultados por departamento
+      const resultadosPorDepartamento = (resultadosDepartamentoRows as any[]).map(depto => {
+        const listasDelDepto = (resultadosListaDepartamentoRows as any[]).filter(
+          lista => lista.departamento_id === depto.departamento_id
+        );
+        
+        return {
+          ...depto,
+          listas: listasDelDepto.map(lista => ({
+            ...lista,
+            porcentaje: depto.total_votantes > 0 ? ((lista.votos / depto.total_votantes) * 100).toFixed(2) : '0.00'
+          }))
+        };
+      });
+
       resultadosFinales = {
         candidatoGanador,
         listaGanadora,
         todasLasListas,
+        resultadosPorDepartamento,
         resumen: {
           totalVotos: totalVotantes,
           votosBlanco: conteos.blanco || 0,
@@ -646,5 +714,58 @@ export const getResultadosGenerales = async (req: Request, res: Response) => {
     res.json(response);
   } catch (error) {
     res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+// Obtener todos los departamentos
+export const getDepartamentos = async (req: Request, res: Response) => {
+  try {
+    console.log('Solicitud para obtener departamentos recibida');
+    
+    const query = `
+      SELECT ID, nombre
+      FROM Departamento
+      ORDER BY nombre
+    `;
+
+    console.log('Ejecutando query:', query);
+    const [rows] = await pool.execute(query);
+    console.log('Resultado de departamentos:', rows);
+    
+    res.json(rows);
+  } catch (error: any) {
+    console.error('Error obteniendo departamentos:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor', error: error?.sqlMessage || error?.message });
+  }
+};
+
+// Obtener circuitos por departamento
+export const getCircuitosPorDepartamento = async (req: Request, res: Response) => {
+  try {
+    const { departamentoId } = req.params;
+    console.log('Solicitud para obtener circuitos del departamento:', departamentoId);
+
+    const query = `
+      SELECT DISTINCT
+        c.ID,
+        e.nombre as establecimiento_nombre,
+        e.tipo as establecimiento_tipo,
+        e.direccion as establecimiento_direccion
+      FROM Circuito c
+      JOIN Establecimiento e ON c.FK_establecimiento_ID = e.ID
+      JOIN Zona z ON e.FK_Zona_ID = z.ID
+      JOIN Departamento d ON z.FK_Departamento_ID = d.ID
+      WHERE d.ID = ?
+      ORDER BY c.ID
+    `;
+
+    console.log('Ejecutando query:', query, 'con departamentoId:', departamentoId);
+    const [rows] = await pool.execute(query, [departamentoId]);
+    console.log('Resultado de circuitos:', rows);
+    
+    res.json(rows);
+  } catch (error: any) {
+    console.error('Error obteniendo circuitos:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor', error: error?.sqlMessage || error?.message });
   }
 }; 

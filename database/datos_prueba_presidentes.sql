@@ -45,11 +45,21 @@ INSERT INTO Mesa (ID, FK_Presidente_CC) VALUES
 
 -- Insertar circuitos adicionales (usando ID diferentes)
 INSERT INTO Circuito (ID, FK_establecimiento_ID, FK_Eleccion_ID, es_accesible, FK_Mesa_ID) VALUES
-(101, 1, 1, TRUE, 101),
-(102, 1, 1, TRUE, 102),
-(103, 2, 1, TRUE, 103),
-(104, 2, 1, TRUE, 104),
-(105, 1, 1, TRUE, 105);
+(1, 1, 1, 1, 1),          -- ID 1, Escuela Nro. 1 - Mesa 1
+(2, 2, 1, 0, 101),        -- ID 2, Liceo Nro. 2 - Mesa 101
+(3, 3, 1, 1, 102),        -- ID 3, Escuela Nro. 3 - Mesa 102
+(4, 4, 1, 0, 103),        -- ID 4, Liceo Bella Unión - Mesa 103
+(5, 5, 1, 1, 104),        -- ID 5, Escuela Central - Mesa 104
+(6, 6, 1, 0, 105),        -- ID 6, UTU Artigas - Mesa 105
+(7, 7, 1, 1, 114),        -- ID 7, Escuela Tomás G. - Mesa 114
+(8, 8, 1, 0, 115),        -- ID 8, Liceo Gomensoro - Mesa 115
+(9, 9, 1, 1, 116),        -- ID 9, Escuela Melo Norte - Mesa 116
+(10, 10, 1, 0, 117),      -- ID 10, Liceo Melo - Mesa 117
+(11, 11, 1, 1, 118),      -- ID 11, Escuela Río Branco - Mesa 118
+(12, 12, 1, 0, 119),      -- ID 12, Liceo de la Frontera - Mesa 119
+(13, 13, 1, 1, 123),      -- ID 13, Escuela Nro. 8 - Mesa 123
+(14, 14, 1, 0, 124),      -- ID 14, UTU Fraile Muerto - Mesa 124
+(15, 15, 1, 1, 125);      -- ID 15, Escuela Nro. 9 - Mesa 125
 
 -- Insertar registros en abre_circuito para los presidentes
 INSERT INTO abre_circuito (Fecha, FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, FK_Presidente_CC) VALUES

@@ -28,6 +28,22 @@ interface ListaResultado {
   porcentaje: number;
 }
 
+interface ResultadoDepartamento {
+  departamento_id: number;
+  departamento_nombre: string;
+  total_votantes: number;
+  total_ciudadanos_asignados: number;
+  porcentaje_participacion: number;
+  listas: Array<{
+    lista_id: number;
+    lista_numero: number;
+    partido_id: number;
+    partido_nombre: string;
+    votos: number;
+    porcentaje: string;
+  }>;
+}
+
 interface ResumenVotos {
   totalVotos: number;
   votosBlanco: number;
@@ -39,6 +55,7 @@ interface ResultadosFinales {
   candidatoGanador?: CandidatoGanador;
   listaGanadora: ListaResultado;
   todasLasListas: ListaResultado[];
+  resultadosPorDepartamento: ResultadoDepartamento[];
   resumen: ResumenVotos;
 }
 
@@ -292,6 +309,61 @@ const ResultadosCorteElectoral: React.FC = () => {
               <div className="bg-yellow-50 p-4 rounded-lg">
                 <div className="text-lg font-bold text-yellow-600">{resultados.resultadosFinales.resumen.votosObservados.toLocaleString()}</div>
                 <div className="text-sm text-yellow-600">Votos Observados</div>
+              </div>
+            </div>
+
+            {/* Resultados por Departamento */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Resultados por Departamento</h3>
+              <div className="space-y-6">
+                {resultados.resultadosFinales.resultadosPorDepartamento.map((departamento) => (
+                  <div key={departamento.departamento_id} className="bg-gray-50 rounded-lg p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-lg font-semibold text-gray-800">{departamento.departamento_nombre}</h4>
+                      <div className="text-sm text-gray-600">
+                        Participación: {departamento.porcentaje_participacion}% 
+                        ({departamento.total_votantes.toLocaleString()} de {departamento.total_ciudadanos_asignados.toLocaleString()} ciudadanos asignados)
+                      </div>
+                    </div>
+                    
+                    {departamento.listas.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-white">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lista</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Partido</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Votos</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Porcentaje</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {departamento.listas.map((lista, index) => (
+                              <tr key={`${departamento.departamento_id}-${lista.lista_id}-${lista.partido_id}`} className={index === 0 ? 'bg-green-50' : ''}>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {lista.lista_numero}
+                                </td>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                  {lista.partido_nombre}
+                                </td>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                  {lista.votos.toLocaleString()}
+                                </td>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                  {lista.porcentaje}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        No hay votos registrados en este departamento
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

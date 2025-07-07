@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import jwt from 'jsonwebtoken';
 
 interface VotoRequest {
   partidoId?: number;
@@ -12,6 +13,24 @@ interface CustomRequest extends Request {
   user?: {
     id: string;
     tipo: string;
+    nombre?: string;
+    presidenteId?: number;
+    circuitoAsignado?: {
+      id: number;
+      establecimiento: {
+        nombre: string;
+        tipo: string;
+        direccion: string;
+      };
+    };
+    circuitoVotacion?: {
+      id: number;
+      establecimiento: {
+        nombre: string;
+        tipo: string;
+        direccion: string;
+      };
+    };
   };
 }
 
@@ -36,25 +55,60 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
       return res.status(400).json({ mensaje: 'Ya ha emitido su voto' });
     }
 
-    // Obtener el circuito y eleccion actual
-    const [circuitoEleccion] = await connection.query<RowDataPacket[]>(
-      `SELECT c.ID as FK_Circuito_ID, c.FK_establecimiento_ID, c.FK_Eleccion_ID 
-       FROM Circuito c
-       JOIN Eleccion e ON c.FK_Eleccion_ID = e.ID
-       WHERE e.Fecha_inicio <= NOW() AND e.Fecha_fin >= NOW()
-       LIMIT 1`
-    );
+    let circuitoVotacion, establecimientoVotacion, eleccionVotacion;
+    let esObservado = false;
 
-    if (circuitoEleccion.length === 0) {
-      return res.status(400).json({ mensaje: 'No hay elecciones activas en este momento' });
+    // Si el usuario tiene información del circuito de votación, usarla
+    if (req.user?.circuitoVotacion) {
+      circuitoVotacion = req.user.circuitoVotacion.id;
+      
+      // Obtener el ID del establecimiento desde la base de datos
+      const [establecimientoInfo] = await connection.query<RowDataPacket[]>(
+        'SELECT FK_establecimiento_ID FROM Circuito WHERE ID = ? AND FK_Eleccion_ID = 1',
+        [req.user.circuitoVotacion.id]
+      );
+      
+      if (establecimientoInfo.length === 0) {
+        return res.status(400).json({ mensaje: 'Circuito no encontrado' });
+      }
+      
+      establecimientoVotacion = establecimientoInfo[0].FK_establecimiento_ID;
+      eleccionVotacion = 1; // Asumimos elección 1
+      
+      // Verificar si es voto observado (vota en circuito diferente al asignado)
+      if (req.user.circuitoAsignado && req.user.circuitoAsignado.id !== req.user.circuitoVotacion.id) {
+        esObservado = true;
+        console.log('Voto observado: vota en circuito diferente al asignado');
+      }
+    } else {
+      // Fallback: obtener el circuito asignado original
+      const [asignacion] = await connection.query<RowDataPacket[]>(
+        `SELECT 
+          ea.FK_Circuito_ID,
+          ea.FK_Establecimiento_ID,
+          ea.FK_Eleccion_ID
+         FROM es_asignado ea
+         WHERE ea.FK_Ciudadano_CC = ?
+         ORDER BY ea.fecha_hora ASC
+         LIMIT 1`,
+        [ciudadanoCC]
+      );
+
+      if (asignacion.length === 0) {
+        return res.status(400).json({ mensaje: 'No está asignado a ningún circuito electoral' });
+      }
+
+      circuitoVotacion = asignacion[0].FK_Circuito_ID;
+      establecimientoVotacion = asignacion[0].FK_Establecimiento_ID;
+      eleccionVotacion = asignacion[0].FK_Eleccion_ID;
     }
 
-    const { FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID } = circuitoEleccion[0];
+    console.log('Circuito de votación:', circuitoVotacion, 'Establecimiento:', establecimientoVotacion, 'Es observado:', esObservado);
 
     // Verificar el estado del circuito antes de permitir el voto
     const [estadoCircuito] = await connection.query<RowDataPacket[]>(
       'SELECT estado FROM Circuito WHERE ID = ? AND FK_establecimiento_ID = ? AND FK_Eleccion_ID = ?',
-      [FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID]
+      [circuitoVotacion, establecimientoVotacion, eleccionVotacion]
     );
 
     if (estadoCircuito.length === 0) {
@@ -65,30 +119,16 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
       return res.status(400).json({ mensaje: 'La urna está cerrada. No se pueden emitir votos en este momento.' });
     }
 
-    // Verificar el circuito asignado al ciudadano para el voto Observado
-    const [asignacionCiudadano] = await connection.query<RowDataPacket[]>(
-      'SELECT FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID FROM es_asignado WHERE FK_Ciudadano_CC = ?',
-      [ciudadanoCC]
-    );
-
-    let esObservado = false;
-    if (asignacionCiudadano.length > 0 && 
-        (asignacionCiudadano[0].FK_Circuito_ID !== FK_Circuito_ID || 
-         asignacionCiudadano[0].FK_Establecimiento_ID !== FK_establecimiento_ID ||
-         asignacionCiudadano[0].FK_Eleccion_ID !== FK_Eleccion_ID)) {
-      esObservado = true;
-    }
-
-    // Registrar el sufragio
+    // Registrar el sufragio en el circuito donde realmente vota
     await connection.query(
       'INSERT INTO Sufraga (FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, FK_Ciudadano_CC, fecha_hora) VALUES (?, ?, ?, ?, NOW())',
-      [FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID, ciudadanoCC]
+      [circuitoVotacion, establecimientoVotacion, eleccionVotacion, ciudadanoCC]
     );
 
     // Registrar el voto en la tabla Voto con el tipo_voto y es_observado
     const [resultVoto] = await connection.query<ResultSetHeader>(
       'INSERT INTO Voto (FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, tipo_voto, es_observado) VALUES (?, ?, ?, ?, ?)',
-      [FK_Circuito_ID, FK_establecimiento_ID, FK_Eleccion_ID, tipoVoto, esObservado]
+      [circuitoVotacion, establecimientoVotacion, eleccionVotacion, tipoVoto, esObservado]
     );
     const votoId = resultVoto.insertId;
 
@@ -103,7 +143,8 @@ export const emitirVoto = async (req: CustomRequest, res: Response) => {
 
     res.json({ 
       mensaje: 'Voto emitido exitosamente',
-      esObservado: esObservado
+      esObservado: esObservado,
+      circuitoVotacion: circuitoVotacion
     });
 
   } catch (error) {
@@ -192,62 +233,92 @@ export const obtenerResultadosCircuito = async (req: Request, res: Response): Pr
 export const obtenerCircuitoActual = async (req: CustomRequest, res: Response): Promise<void> => {
   try {
     const ciudadanoCC = req.user?.id;
-    console.log('Obteniendo circuito actual para ciudadano:', ciudadanoCC);
+    console.log('=== OBTENIENDO CIRCUITO ACTUAL ===');
+    console.log('Ciudadano CC:', ciudadanoCC);
+    console.log('Usuario del token:', req.user);
 
     if (!ciudadanoCC) {
       res.status(401).json({ mensaje: 'No autorizado' });
       return;
     }
 
-    // Obtener el circuito actual donde está votando
-    const [circuitoActual] = await pool.query<RowDataPacket[]>(
+    // Si el usuario tiene información del circuito de votación, usarla
+    if (req.user?.circuitoVotacion) {
+      console.log('Usando circuito de votación del req.user:', req.user.circuitoVotacion);
+      
+      // Obtener el estado actual del circuito y el ID del establecimiento desde la base de datos
+      const [circuitoInfo] = await pool.query<RowDataPacket[]>(
+        'SELECT estado, FK_establecimiento_ID FROM Circuito WHERE ID = ? AND FK_Eleccion_ID = 1',
+        [req.user.circuitoVotacion.id]
+      );
+
+      if (circuitoInfo.length === 0) {
+        res.status(404).json({ mensaje: 'Circuito no encontrado' });
+        return;
+      }
+
+      const estado = circuitoInfo[0].estado || 'cerrado';
+      const establecimientoId = circuitoInfo[0].FK_establecimiento_ID;
+
+      const response = {
+        id: req.user.circuitoVotacion.id,
+        estado: estado,
+        urnaAbierta: estado === 'abierto',
+        establecimiento: {
+          id: establecimientoId,
+          nombre: req.user.circuitoVotacion.establecimiento.nombre,
+          tipo: req.user.circuitoVotacion.establecimiento.tipo,
+          direccion: req.user.circuitoVotacion.establecimiento.direccion
+        }
+      };
+      
+      console.log('Enviando respuesta (desde req.user):', response);
+      res.json(response);
+      return;
+    }
+
+    // Fallback: obtener el circuito específico donde está asignado el ciudadano
+    console.log('req.user no tiene información de circuito, consultando base de datos...');
+    const [asignacion] = await pool.query<RowDataPacket[]>(
       `SELECT 
-        c.ID as circuito_id,
-        c.FK_establecimiento_ID,
-        c.FK_Eleccion_ID,
+        ea.FK_Circuito_ID as circuito_id,
+        ea.FK_Establecimiento_ID,
+        ea.FK_Eleccion_ID,
         c.estado as estado_circuito,
         e.nombre as establecimiento_nombre,
         e.tipo as establecimiento_tipo,
         e.direccion as establecimiento_direccion
-       FROM Circuito c
+       FROM es_asignado ea
+       JOIN Circuito c ON ea.FK_Circuito_ID = c.ID 
+         AND ea.FK_Establecimiento_ID = c.FK_establecimiento_ID 
+         AND ea.FK_Eleccion_ID = c.FK_Eleccion_ID
        JOIN Establecimiento e ON c.FK_establecimiento_ID = e.ID
-       WHERE c.FK_Eleccion_ID = 1
-       LIMIT 1`
-    );
-    console.log('Resultado de circuito actual:', circuitoActual);
-
-    if (circuitoActual.length === 0) {
-      console.log('No se encontró circuito activo');
-      res.status(404).json({ mensaje: 'No hay elecciones activas en este momento' });
-      return;
-    }
-
-    // Verificar si el ciudadano está asignado a algún circuito
-    const [asignacion] = await pool.query<RowDataPacket[]>(
-      'SELECT * FROM es_asignado WHERE FK_Ciudadano_CC = ?',
+       WHERE ea.FK_Ciudadano_CC = ?
+       ORDER BY ea.fecha_hora ASC
+       LIMIT 1`,
       [ciudadanoCC]
     );
+    console.log('Resultado de asignación del ciudadano:', asignacion);
 
     // Si no está asignado, asignarlo automáticamente al primer circuito disponible
     if (asignacion.length === 0) {
-      console.log('Ciudadano no asignado, asignando automáticamente...');
-      await pool.query(
-        'INSERT INTO es_asignado (FK_Ciudadano_CC, FK_Circuito_ID, FK_Establecimiento_ID, FK_Eleccion_ID, fecha_hora) VALUES (?, ?, ?, ?, NOW())',
-        [ciudadanoCC, circuitoActual[0].circuito_id, circuitoActual[0].FK_establecimiento_ID, circuitoActual[0].FK_Eleccion_ID]
-      );
+      console.log('Ciudadano no asignado a ningún circuito');
+      res.status(400).json({ mensaje: 'No está asignado a ningún circuito electoral. Contacte a la administración.' });
+      return;
     }
 
+    // Usar la asignación existente del ciudadano
     const response = {
-      id: circuitoActual[0].circuito_id,
-      estado: circuitoActual[0].estado_circuito || 'cerrado',
-      urnaAbierta: circuitoActual[0].estado_circuito === 'abierto',
+      id: asignacion[0].circuito_id,
+      estado: asignacion[0].estado_circuito || 'cerrado',
+      urnaAbierta: asignacion[0].estado_circuito === 'abierto',
       establecimiento: {
-        nombre: circuitoActual[0].establecimiento_nombre,
-        tipo: circuitoActual[0].establecimiento_tipo,
-        direccion: circuitoActual[0].establecimiento_direccion
+        nombre: asignacion[0].establecimiento_nombre,
+        tipo: asignacion[0].establecimiento_tipo,
+        direccion: asignacion[0].establecimiento_direccion
       }
     };
-    console.log('Enviando respuesta:', response);
+    console.log('Enviando respuesta (asignación existente):', response);
     res.json(response);
 
   } catch (error) {
