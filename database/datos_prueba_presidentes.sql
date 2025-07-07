@@ -1,5 +1,6 @@
 
 
+
 -- Insertar miembros de mesa
 INSERT INTO Miembro_de_Mesa (FK_Ciudadano_CC, organismo) VALUES
 ('CC101', 'Corte Electoral'),
